@@ -20,7 +20,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -306,7 +305,7 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 			params["args"] = v
 		}
 		result, e = request(ctx, root, method, params)
-		if errors.Is(e, os.ErrNotExist) || errors.Is(e, syscall.ECONNREFUSED) {
+		if errors.Is(e, os.ErrNotExist) || errors.Is(e, connectionRefused) {
 			result, e = device.Call(ctx, method, params)
 		}
 	}
