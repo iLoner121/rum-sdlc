@@ -1,0 +1,24 @@
+{
+  "files": [
+    "internal/jsonvalue/json_test.go",
+    "internal/jsonvalue/json.go",
+    "internal/core/query.go",
+    "internal/core/legacy.go",
+    "internal/core/command.go",
+    "internal/core/legacy_validation.go",
+    "internal/core/core_test.go",
+    "internal/core/markdown.go",
+    "internal/core/validate.go",
+    "internal/core/closure.go",
+    "internal/core/value.go",
+    "internal/cli/workflow.go",
+    "internal/migration/migration_test.go",
+    "internal/migration/migration.go",
+    "internal/store/store_test.go",
+    "internal/store/store.go",
+    "internal/store/process_unix.go",
+    "internal/store/process_windows.go"
+  ],
+  "basis": "0.8.5 Go acceptance; core protocol 4.1.2",
+  "changed": []
+}

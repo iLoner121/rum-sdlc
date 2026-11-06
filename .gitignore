@@ -1,0 +1,15 @@
+/build/
+/workflow
+/workflow.exe
+/core-contract
+/core-contract.exe
+/rum
+/rum.exe
+/rum-under-test
+/app-contract
+/app-contract.exe
+/migration-contract
+/migration-contract.exe
+/migrate
+/migrate.exe
+__pycache__/

@@ -1,0 +1,16 @@
+test_import_closed_delivery_and_iteration_results_preserves_facts (test_migration.MigrationTests) ... ok
+test_import_preserves_identity_tasks_binary_and_free_links (test_migration.MigrationTests) ... ok
+test_import_preserves_runtime_added_then_removed_scope (test_migration.MigrationTests) ... ok
+test_import_refuses_nonempty_destination_and_symlink_source (test_migration.MigrationTests) ... ok
+test_import_reports_unresolved_links_without_inventing_targets (test_migration.MigrationTests) ... ok
+test_import_write_failure_rolls_back_own_files (test_migration.MigrationTests) ... ok
+test_incomplete_legacy_record_is_not_silently_skipped (test_migration.MigrationTests) ... ok
+test_source_change_invalidates_import_preview (test_migration.MigrationTests) ... ok
+test_source_executable_mode_change_invalidates_preview (test_migration.MigrationTests) ... ok
+test_unknown_legacy_kind_requires_explicit_classification (test_migration.MigrationTests) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.860s
+
+OK
+NATIVE_MIGRATION_PREPARES=18

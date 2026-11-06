@@ -1,0 +1,1 @@
+PASS: native offline installation, immutable releases, global launcher, concurrent leases, service preservation, legacy rollback/restart; product PATH empty

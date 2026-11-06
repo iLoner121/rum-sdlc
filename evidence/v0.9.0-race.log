@@ -1,0 +1,20 @@
+?   	rumsdlc/cmd/app-contract	[no test files]
+?   	rumsdlc/cmd/build	[no test files]
+?   	rumsdlc/cmd/migrate	[no test files]
+?   	rumsdlc/cmd/core-contract	[no test files]
+?   	rumsdlc/cmd/migration-contract	[no test files]
+?   	rumsdlc/cmd/rum	[no test files]
+?   	rumsdlc/cmd/workflow	[no test files]
+?   	rumsdlc/internal/assets	[no test files]
+?   	rumsdlc/internal/catalog	[no test files]
+?   	rumsdlc/internal/release	[no test files]
+ok  	rumsdlc/internal/app	18.619s
+ok  	rumsdlc/internal/cli	2.439s
+ok  	rumsdlc/internal/core	4.783s
+ok  	rumsdlc/internal/fsutil	3.758s
+ok  	rumsdlc/internal/installation	5.207s
+ok  	rumsdlc/internal/jsonvalue	4.796s
+ok  	rumsdlc/internal/migration	4.406s
+ok  	rumsdlc/internal/process	3.072s
+ok  	rumsdlc/internal/service	2.880s
+ok  	rumsdlc/internal/store	3.209s
