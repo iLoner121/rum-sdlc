@@ -9,10 +9,11 @@
 | 验证 | 结果 | 证据 |
 | --- | --- | --- |
 | 原版基线 | 281 项通过 | evidence/baseline-281.log |
-| 0.9.0 原生系统入口回归 | 281/281 通过，无跳过，531.420 秒；当前版本期望为 0.9.0，业务断言与历史夹具保留 | evidence/v0.9.0-regression.log |
+| 0.9.0 原生系统入口回归 | 281/281 通过，无跳过，515.672 秒；当前版本期望为 0.9.0，业务断言与历史夹具保留 | evidence/v0.9.0-regression.log |
 | 历史核心 | 195 项通过；2,180 次操作、4,292 次校验、40 次查询差分一致 | evidence/rumsdlc-native-final-core-195.log |
 | 历史快照迁移 | 10 项通过，18 次转换的状态、报告与文件字节一致 | evidence/rumsdlc-native-final-migration.log |
 | 原生 Go 测试 | go test -race -count=1 ./... 通过 | evidence/v0.9.0-race.log |
+| 目标系统 CI | macOS/Linux/Windows 原生 Go 竞态测试、静态检查、构建与版本启动检查，以及六种交叉构建全部通过 | [运行记录](https://github.com/iLoner121/rum-sdlc/actions/runs/42195535922)、evidence/v0.9.0-ci.json |
 | 静态检查 | go vet ./... 通过 | evidence/v0.9.0-vet.log |
 | 原生核心 CLI | 20 组命令、5 种视图、过期令牌拒绝，结果与持久化快照一致；PATH 为空 | evidence/rumsdlc-native-final-cli.log |
 | 发布程序安装 | 安装、全局入口、升级、门禁、旧事务恢复与原生服务重启通过；PATH 为空 | evidence/v0.9.0-install.log |
@@ -55,8 +56,10 @@ tests/installed_original.py 运行原来的 281 个用例，保留业务断言�
 0.9.0 完整回归在 macOS arm64 执行。六种发布程序均为关闭 CGO 的原生编译产物。
 0.9.0 的 macOS amd64 安装、直接使用与项目脚本协作已在已有 Rosetta 环境通过；
 这不是 Intel 实机的完整回归。
-Linux/Windows 无本机执行证据，不能据此声称这些系统上的完整测试已经通过。
-.github/workflows/native.yml 提供目标系统 CI，尚未提交或触发远端运行。
+GitHub Actions 已在 macOS/Linux/Windows 三种目标系统执行原生 Go 测试、静态检查、
+构建与版本启动检查，全部通过；记录见 evidence/v0.9.0-ci.json。首次 Windows 运行发现
+无后台服务时 CLI 对连接拒绝错误的识别不兼容，修复后完整重跑通过。
+这些目标系统 Go 测试不能等同于在 Linux/Windows 上完整执行原有 281 项 Python 驱动回归。
 
 原版只面向 POSIX 的项目 Python 脚本保留其依赖，不承诺在原生 Windows Python
 中直接执行。这不影响独立 Go 系统的跨平台编译边界。

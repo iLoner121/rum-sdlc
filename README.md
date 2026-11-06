@@ -124,13 +124,14 @@ go run ./cmd/build
 ```
 
 跨平台构建使用 CGO_ENABLED=0，不要求目标机器安装语言运行环境或额外共享库。
-GitHub Actions 已配置 macOS/Linux/Windows 的 Go 测试及六种交叉构建，尚未在远端执行。
+GitHub Actions 的 macOS/Linux/Windows 原生 Go 竞态测试、静态检查、构建和启动检查，
+以及六种交叉构建均已通过，见[跨平台测试记录](https://github.com/iLoner121/rum-sdlc/actions/runs/42195535922)。
 
 0.9.0 的完整原生回归 281/281 通过，无跳过；竞态、静态、两条旧版升级路径和
 无运行时环境的发布程序测试通过。历史核心差分 195/195、迁移专项 10/10 的代码与已验收版本一致。
 准确范围、测试适配方式与日志见 [验收说明](ACCEPTANCE.md)。
 
 平台证据须区分：本机完整执行环境为 macOS arm64；macOS amd64 产物通过已有
-Rosetta 环境下的安装、直接使用和项目脚本验证。Linux/Windows 已交叉构建，
-尚未完成目标系统上的运行验收。项目 Python 脚本的原有 POSIX 依赖也未改写成
-Windows 原生实现，符合本次仅重构系统层的范围。
+Rosetta 环境下的安装、直接使用和项目脚本验证。Linux/Windows 已在 CI 中执行原生 Go 测试，
+这不等于原有 281 项 Python 驱动回归已在这两个系统完整运行。项目 Python 脚本的原有
+POSIX 依赖保留，符合本次仅重构系统层的范围。

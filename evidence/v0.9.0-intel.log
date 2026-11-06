@@ -1,4 +1,4 @@
 PASS: native offline installation, immutable releases, global launcher, concurrent leases, service preservation, legacy rollback/restart; product PATH empty
 PASS: production workspace adoption, real Git configuration, health, native workflow and offline manual; only Git on PATH
 Native workspace, Python project entry, unchanged direct Git adapter, native apply and stale-scope refusal: passed.
-PASS: macOS amd64 0.9.0 via existing Rosetta
+PASS: macOS amd64 production acceptance via existing Rosetta environment

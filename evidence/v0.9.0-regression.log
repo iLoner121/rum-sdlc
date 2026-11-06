@@ -281,7 +281,7 @@ test_removed_clone_command_never_creates_a_workspace (test_workspace.WorkspaceTe
 test_scan_recovers_published_workspace_registration (test_workspace.WorkspaceTests) ... ok
 
 ----------------------------------------------------------------------
-Ran 281 tests in 531.420s
+Ran 281 tests in 515.672s
 
 OK
 GO_DIFFERENTIAL_COUNTS={"actions": {"extension.set": 1, "line.state": 1, "milestone.create": 1, "relation.move": 1, "topic.integration.prepare": 1, "topic.state": 5}, "dispatch": 10, "legacy_fixture_init": 0, "query": 0, "validate": 37}
