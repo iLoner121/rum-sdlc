@@ -51,7 +51,7 @@ BREAKING CHANGE: <破坏的契约和迁移办法，仅破坏性变化填写>
 
 | 位置 | 默认初稿 |
 |---|---|
-| 新 Topic 分支 | <type>/<Topic-ID>-<slug>，保留 feat/fix/docs 等常规前缀；默认不把 M/ITER 全部拼进分支名 |
+| 新 Topic 分支 | <type>/<Topic短编号>-<slug>，保留 feat/fix/docs 等常规前缀；默认不把 M/ITER 全部拼进分支名 |
 | 日常 commit | type(scope): 行为摘要 [Topic-ID]；完整 ID 影响可读性或长度时放 Topic: 尾注 |
 | 首次实现提交、整合提交、规划归属变化后的首条相关提交 | 保留 Topic，并在正文/尾注加上真实已知的 Milestone: M1、Iteration: ITER-001 等当时上下文 |
 | 普通后续提交 | 默认保留 Topic，不机械复制每一层规划信息；项目要求每条完整标注时可以采用 |

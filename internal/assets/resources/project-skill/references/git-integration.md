@@ -10,7 +10,7 @@ python3 -B <工程>/.agents/skills/rum-project/scripts/git_adapter.py bind --rep
 python3 -B <工程>/.agents/skills/rum-project/scripts/git_adapter.py bind --repo <代码树> --store <工程>/meta --topic <T-ID> --expect-revision <返回令牌>
 ```
 
-未绑定时明确返回规划/整合模式和 binding_required，不按 Topic ID 的分支命名猜测。agent 根据实际任务核对后显式 bind；不重命名现有分支。新建 Topic 分支优先沿用代码项目约定；省略 --branch 时仅在确认首次代码且没有已记录分支时建议 <type>/<Topic-ID>-<slug>，如 feat/T-20261105-aabbccdd-cache-timeout。feat/fix/docs/refactor/chore 保留常规含义，spike 的默认前缀为 chore。显式 --branch 允许用户自定义、带其他 Topic 编号或完全不带编号；只检查合法 Git 名称，不以名称推导归属。已登记分支优先恢复；建议名称已存在时拒绝自动接管，先核对后显式选择。开始会话从系统重读当前 Topic/关系，不依赖旧本地记录。
+未绑定时明确返回规划/整合模式和 binding_required，不按 Topic ID 的分支命名猜测。agent 根据实际任务核对后显式 bind；不重命名现有分支。新建 Topic 分支优先沿用代码项目约定；省略 --branch 时仅在确认首次代码且没有已记录分支时建议 <type>/<Topic短编号>-<slug>，如 feat/T42-cache-timeout。feat/fix/docs/refactor/chore 保留常规含义，spike 的默认前缀为 chore。显式 --branch 允许用户自定义、带其他 Topic 编号或完全不带编号；只检查合法 Git 名称，不以名称推导归属。已登记分支优先恢复；建议名称已存在时拒绝自动接管，先核对后显式选择。开始会话从系统重读当前 Topic/关系，不依赖旧本地记录。
 
 同一代码树/Git 现场保持一个写入者；不同 Topic 真并行、保留脏现场或紧急插入才增加工作树，普通串行复用。暂停保留代码目录与恢复说明；不愿提交保留脏树，不自动 stash。工作流暂停/切换不保存代码，也不切分支。跨设备代码写入仍需明确交接，绑定不是跨设备独占锁。
 
@@ -193,3 +193,7 @@ Project 是逻辑工程，Store 是本机数据目录。核心 platform_preview.
 current/list/check 与 bind 使用相同的本地绑定身份规则。显式 Store 不得与已有绑定的 Store 不同；同 Project 的另一份副本也须显式解绑后再绑定。current 从绑定推导 Store 时仍检查所属设备及未完成工程转换。check 发现错配返回非零退出码；list 可列出诊断结果，但 ok=false 并包含明确 issues，不能把列表命令退出成功当健康。
 
 程序升级不会替换旧工程脚本。0.8.4 工程显式 project-update 后再验收此契约，所有旧预览重新生成。
+
+## Topic 短编号
+
+用户可在 --topic 中使用项目内短编号（例如 T42）。适配器经核心查询解析成稳定长 ID 后写入索引与绑定。新分支默认使用短编号，例如 feat/T42-export-report；已登记分支和显式 --branch 优先，不重命名已有分支，也不从名称判断 Topic 归属。短编号依赖所属 Project/Store 的共同历史；离线分配分叉先恢复同步冲突，再确认最终编号。

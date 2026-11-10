@@ -10,7 +10,7 @@ import git_evidence as ge
 def suggested_branch(topic):
     """A readable creation default, never a parser or evidence of association."""
     prefix = {'spike': 'chore'}.get(topic['type'], topic['type'])
-    name = prefix + '/' + topic['id'] + '-' + topic['slug']
+    name = prefix + '/' + topic.get('short_id', topic['id']) + '-' + topic['slug']
     return gv.branch(name)
 
 
@@ -18,7 +18,7 @@ def target(state,params):
     topic=params.get('topic');line=params.get('line');name=params.get('branch')
     v.need(not(topic and line),'Choose Topic or Line, not both')
     if topic:
-        t=state['topics'].get(topic);v.need(t is not None and t['status']!='closed','Unfinished Topic required')
+        t=m.topic(state,topic);topic=t['id'];v.need(t['status']!='closed','Unfinished Topic required')
         name = name if name is not None else suggested_branch(t)
         parent=state['lines'][m.relation(state,'line',topic)]
     elif line:

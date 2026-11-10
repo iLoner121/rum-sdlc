@@ -59,7 +59,9 @@ func Dispatch(before Object, request Object) (after Object, result any, err erro
 	need(len(history) > 0, "Invalid history length")
 	need(when >= str(obj(history[len(history)-1], "history")["date"]), "Change date precedes latest revision")
 	after = clone(before).(Object)
-	result = apply(after, request)
+	effective := clone(request).(Object)
+	effective["params"] = canonicalParams(before, action, p)
+	result = apply(after, effective)
 	return seal(before, after, request, result)
 }
 

@@ -320,7 +320,11 @@ func (s *Store) Execute(request Object, dryRun bool, expect string) (result Obje
 		if e != nil {
 			return nil, e
 		}
-		return Object{"changed": false, "would_change": !jsonvalue.Equal(before, after), "revision": token, "result": id, "dry_run": true}, nil
+		result := Object{"changed": false, "would_change": !jsonvalue.Equal(before, after), "revision": token, "result": id, "dry_run": true}
+		if label := core.ShortReference(after, fmt.Sprint(id)); label != "" {
+			result["short_id"] = label
+		}
+		return result, nil
 	}
 	if strings.TrimSpace(expect) == "" {
 		return nil, errors.New("expect from a fresh dry-run must be nonempty text")
@@ -344,6 +348,9 @@ func (s *Store) Execute(request Object, dryRun bool, expect string) (result Obje
 			}
 		}
 		result = Object{"changed": changed, "revision": token, "result": id, "committed": false}
+		if label := core.ShortReference(after, fmt.Sprint(id)); label != "" {
+			result["short_id"] = label
+		}
 		return nil
 	})
 	return
@@ -371,6 +378,12 @@ func (s *Store) Document(o DocumentOptions) (result Object, err error) {
 	state, e := s.Read(false)
 	if e != nil {
 		return nil, e
+	}
+	if o.Table == "topics" || o.Table == "tasks" {
+		o.ID, e = core.CanonicalReference(state, o.ID)
+		if e != nil {
+			return nil, e
+		}
 	}
 	var entity Object
 	if o.Table == "project" {

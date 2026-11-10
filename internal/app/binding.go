@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"rumsdlc/internal/core"
 	"rumsdlc/internal/fsutil"
 	"rumsdlc/internal/store"
 )
@@ -47,7 +48,11 @@ func (o *operation) bindCode(p Object) Object {
 	branches := object(binding["topic_branches"], "topic_branches")
 	reviews := object(binding["topic_reviews"], "topic_reviews")
 	if topic != "" {
-		require(has(object(readState(str(record["path"]))["topics"], "topics"), topic), "Unknown Topic")
+		state := readState(str(record["path"]))
+		var err error
+		topic, err = core.CanonicalReference(state, topic)
+		must(err)
+		require(has(object(state["topics"], "topics"), topic), "Unknown Topic")
 		if clearBranch {
 			delete(branches, topic)
 		} else {

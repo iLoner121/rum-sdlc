@@ -129,3 +129,9 @@ task.correct 只改变 done Task 的 result，校验非空文本、已有原因/
 
 
 project.init 只创建结构化实体。workspace-init/adopt 负责完整工程接入与共享入口生成。topic.create 不自动创建正文；正式开题时 document --ensure 后按 context 模板准备 TASK_CONTEXT；其他文档按需生成。
+
+## 项目内 Topic 短编号
+
+Topic 通过创建历史获得 T1、T2 等连续短编号，不补零，关闭后不复用，超过 T999 继续增长。旧数据直接投影编号，不改写内部长 ID、历史或文档路径。查询中的 short_id 是用户引用编号，id/topic_id 仍为内部身份；Task 使用 T42/t001。命令参数中的 Topic/Task 引用、query --id、document --id、bind-code/observe-code --topic 及 Git 适配器 --topic 支持短编号。旧长 ID 继续有效；不接受 T-1、T01 或模糊缩写。正文与扩展内容不会被替换。创建预检和执行保留 result，并补充 short_id；编号以成功执行后的结果为准。
+
+同一 Store 的过期预检必须刷新；不同设备离线创建可能暂时显示相同短编号，内部长 ID 仍不同。同步拒绝自动合并分配分叉，保留两边和候选。按显式决定从共同历史依次重放分配，使用原长 ID + id_reason 保留身份，再用完整长 ID 重放后续操作/恢复正文与关联，校验通过后显式接受候选；禁止手改 state.json。未共享的短编号不视作跨设备正式分配，冲突期间引用完整长 ID。

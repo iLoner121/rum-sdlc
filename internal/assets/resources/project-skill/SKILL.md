@@ -7,7 +7,7 @@ description: 在接入 RumSDLC 的工程内规划 Milestone、Iteration、Line�
 
 本体只负责流程、文档、设备登记、显式代码关联和自身 meta 同步；不检查本地代码，不读取适配器索引。代码获取、Git 初始化、现场核验、分支、提交、合并、推送与交付由本 skill/agent 负责。
 
-接管先读 context/doctor，再由本 skill 核验实际代码。doctor 正常不证明代码就绪；远端观察也不授权代码动作。Git 实施前由 agent 确认实际 Topic 分支，创建/绑定后显式登记共享关联。命名是 agent 的可覆盖 rules：新分支默认建议 <type>/<Topic-ID>-<slug>，如 feat/T-20261105-aabbccdd-cache-timeout；提交消息默认带真实 Topic 标识，首次/整合提交或规划归属变化时补充已存在的 M/ITER。用户或项目约定可替换、精简或取消这些管理标识，无须改系统；名称和消息不决定 Topic 归属，实体缩写不替代 feat/fix/docs 等 Git 类型。普通目录只使用默认 Line，真实代码仍需验证和交付，不虚构 Git 或 no_code。
+接管先读 context/doctor，再由本 skill 核验实际代码。doctor 正常不证明代码就绪；远端观察也不授权代码动作。Git 实施前由 agent 确认实际 Topic 分支，创建/绑定后显式登记共享关联。命名是 agent 的可覆盖 rules：新分支默认建议 <type>/<Topic短编号>-<slug>，如 feat/T42-cache-timeout；提交消息默认带真实 Topic 标识，首次/整合提交或规划归属变化时补充已存在的 M/ITER。用户或项目约定可替换、精简或取消这些管理标识，无须改系统；名称和消息不决定 Topic 归属，实体缩写不替代 feat/fix/docs 等 Git 类型。普通目录只使用默认 Line，真实代码仍需验证和交付，不虚构 Git 或 no_code。
 
 Git 代码操作前运行项目脚本 repo_check.py inspect，并按操作读取 Git 准则。检查不完整、失败、脚本不支持或仓库结构特殊时，必须读取 [git-fallback.md](references/git-fallback.md)，补齐与本次操作有关的具体证据；关键事实未知就暂停该代码动作。不得凭脚本退出 0 或 RumSDLC 状态推送。
 

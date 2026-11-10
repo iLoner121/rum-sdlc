@@ -10,3 +10,7 @@ def resolve(state, topic):
 
 def validate(state):
     call('validate', state=state)
+
+
+def topic(state, identifier):
+    return call('query', state=state, params={'view':'show', 'table':'topics', 'identifier':identifier})['entity']

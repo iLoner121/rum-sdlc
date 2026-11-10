@@ -154,12 +154,12 @@ def current(root,store_path=None):
         v.need(workspaces.same_store(saved,state,store_path),'Binding belongs to another Project or Store; preserve work and explicitly unbind/rebind')
         v.need(saved['branch']==actual,'Stale local binding after branch switch; preserve work and explicitly unbind/rebind')
         identifier=saved['topic_id'];v.need(identifier in state['topics'],'Bound Topic missing from workflow')
-        return dict(resolve(state,identifier),branch=actual,topic=state['topics'][identifier],bound=True)
+        return dict(resolve(state,identifier),branch=actual,topic=m.topic(state,identifier),bound=True)
     return {'project_id':state['project']['id'],'branch':actual,'mode':'planning-or-integration','topic_id':None,'binding_required':True}
 
 
 def binding_plan(root,store_path,identifier):
-    state=Store(store_path).read();v.need(identifier in state['topics'] and state['topics'][identifier]['status']!='closed','Bind an unfinished Topic')
+    state=Store(store_path).read();identifier=m.topic(state,identifier)['id'];v.need(state['topics'][identifier]['status']!='closed','Bind an unfinished Topic')
     old=focus(root)
     v.need(old is None or (workspaces.same_store(old,state,store_path) and old['topic_id']==identifier),
            'Preserve previous code activity, then explicitly unbind before changing Project, Store or Topic')
@@ -205,7 +205,9 @@ def no_topic_code(root,state,topic,inspection,source_ref=None):
 
 
 def add_plan(root,args):
-    state=Store(args.store).read();params=dict(vars(args))
+    state=Store(args.store).read()
+    if args.topic: args.topic=m.topic(state,args.topic)['id']
+    params=dict(vars(args))
     if args.topic and not args.branch:
         observed=topic_ref(root,state,args.topic,required=False)
         if observed:
@@ -219,7 +221,9 @@ def add_plan(root,args):
     target=commit(root,'refs/heads/'+subject['target_branch']) if subject['topic_id'] else None
     dependencies=[];selected=[];overrides={}
     for spec in getattr(args,'dependency_ref',[]) or []:
-        key,sep,ref=spec.partition('=');v.need(sep and key not in overrides,'Use one --dependency-ref TOPIC=REF per dependency');overrides[key]=ref
+        key,sep,ref=spec.partition('=')
+        if sep: key=m.topic(state,key)['id']
+        v.need(sep and key not in overrides,'Use one --dependency-ref TOPIC=REF per dependency');overrides[key]=ref
     allowed=True;history=topic_index(root)
     if subject['topic_id']:
         tid=subject['topic_id'];topic=state['topics'][tid]
@@ -271,7 +275,7 @@ def remove_plan(root,args):
 
 
 def delivery(root,store_path,topic,ref,source_ref=None,squash_evidence=None):
-    state=Store(store_path).read();v.need(topic in state['topics'],'Missing Topic');resolved=resolve(state,topic)
+    state=Store(store_path).read();topic=m.topic(state,topic)['id'];v.need(topic in state['topics'],'Missing Topic');resolved=resolve(state,topic)
     integrated=commit(root,ref);target=commit(root,'refs/heads/'+resolved['target_branch'])
     git(root,'merge-base','--is-ancestor',integrated,target)
     selected=topic_ref(root,state,topic,source_ref);source=selected['head']
@@ -306,7 +310,7 @@ def retarget_plan(root,store_path,topic,to_line,date,reason,evidence,decision,de
     from service import request
     from integration import validate_context
     from git_evidence import retention_refs
-    state=Store(store_path).read();v.need(topic in state['topics'] and to_line in state['lines'],'Missing Topic or target Line')
+    state=Store(store_path).read();topic=m.topic(state,topic)['id'];v.need(topic in state['topics'] and to_line in state['lines'],'Missing Topic or target Line')
     current=m.relation(state,'line',topic);refresh=current==to_line;old=None
     if refresh:
         pending=state['topics'][topic]['integration_recheck'];v.need(pending is not None,'Target is unchanged and there is no integration context to refresh')
@@ -335,7 +339,7 @@ def retarget_plan(root,store_path,topic,to_line,date,reason,evidence,decision,de
 def retarget_verify(root,store_path,topic,date,report,reason,evidence,decision,source_ref=None,no_code=None):
     from service import request
     from git_evidence import retention_refs
-    state=Store(store_path).read();v.need(topic in state['topics'],'Missing Topic');pending=state['topics'][topic]['integration_recheck']
+    state=Store(store_path).read();topic=m.topic(state,topic)['id'];v.need(topic in state['topics'],'Missing Topic');pending=state['topics'][topic]['integration_recheck']
     v.need(pending is not None,'No selected target revalidation context');context=pending['context'];code=ge.context(context)
     target=commit(root,'refs/heads/'+ge.line(state,context['line_id'])['branch'])
     v.need(target==code['baseline'],'Target Line tip changed; pause and refresh the integration context before verification')
@@ -404,7 +408,9 @@ def line_retention(root,store_path,identifier,retained_ref,last_release_ref=None
 
 
 def closure_plan(root,store_path,req,source_ref=None):
-    state=Store(store_path).read();p=req['params']
+    state=Store(store_path).read();p=dict(req['params'])
+    if req['action']=='topic.close' or req['action']=='closure.correct' and p.get('table')=='topics':
+        p['id']=m.topic(state,p['id'])['id']
     v.need(req['action'] in {'topic.close','line.close','closure.correct'},'Closure/correction request required')
     if req['action']=='closure.correct':
         table=p['table'];v.need(table in {'topics','lines'},'Git closure corrections apply to Topics/Lines')
@@ -508,6 +514,8 @@ def main():
 
 
 def execute(a,root):
+    if getattr(a,'topic',None) and getattr(a,'store',None):
+        a.topic=m.topic(Store(a.store).read(),a.topic)['id']
     if a.command == 'migrate-state':
         old_index=gitdir(root,True)/'personal-workflow-4/topics.json';old_focus=gitdir(root)/'personal-workflow-4/focus.json'
         plan={}

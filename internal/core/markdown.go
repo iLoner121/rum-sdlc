@@ -41,7 +41,7 @@ func Markdown(result Object) string {
 	}
 	columns := []string{}
 	seen := map[string]bool{}
-	order := strings.Fields("id name status position participation current_workset_id topic disposition note evidence version project_id created_on closure extensions type slug dependencies integration_recheck")
+	order := strings.Fields("short_id id name status position participation current_workset_id topic disposition note evidence version project_id created_on closure extensions type slug dependencies integration_recheck")
 	for _, v := range rows {
 		row := obj(v, "row")
 		for _, k := range append(order, keys(row)...) {

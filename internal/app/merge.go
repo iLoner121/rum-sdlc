@@ -1,8 +1,10 @@
 package app
 
 import (
+	"fmt"
 	"rumsdlc/internal/core"
 	"sort"
+	"strings"
 )
 
 func mergeState(left, right Object) Object {
@@ -27,7 +29,24 @@ func mergeState(left, right Object) Object {
 		hash := fingerprint(events)
 		for index, v := range events {
 			event := object(v, "event")
-			require(oneOf(str(event["action"]), "entity.rename extension.set task.correct"), "Concurrent lifecycle/allocation changes require explicit business resolution")
+			if !oneOf(str(event["action"]), "entity.rename extension.set task.correct") {
+				collisions := []string{}
+				a, b := core.TopicNumbers(left), core.TopicNumbers(right)
+				otherByNumber := map[string]string{}
+				for id, number := range b {
+					otherByNumber[number] = id
+				}
+				for _, id := range sortedKeys(a) {
+					if other := otherByNumber[a[id]]; other != "" && id != other {
+						collisions = append(collisions, fmt.Sprintf("%s: local %s / remote %s", a[id], id, other))
+					}
+				}
+				detail := ""
+				if len(collisions) > 0 {
+					detail = "; Topic number conflicts (unshared allocations): " + strings.Join(collisions, ", ") + ". Preserve both canonical IDs and replay allocations in an explicitly selected order from the common history"
+				}
+				require(false, "Concurrent lifecycle/allocation changes require explicit business resolution"+detail)
+			}
 			for _, v := range array(event["changes"], "changes") {
 				paths[side][fingerprint(object(v, "change")["path"])] = true
 			}
@@ -64,3 +83,12 @@ func mergeState(left, right Object) Object {
 	return state
 }
 func attempt(fn func()) (err error) { defer guard(&err); fn(); return nil }
+
+func sortedKeys(values map[string]string) []string {
+	result := make([]string, 0, len(values))
+	for key := range values {
+		result = append(result, key)
+	}
+	sort.Strings(result)
+	return result
+}

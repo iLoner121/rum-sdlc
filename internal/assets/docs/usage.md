@@ -132,3 +132,13 @@ rum daemon stop
 `--discovery-interval` 调整；同步周期至少 5 秒，发现周期不得更短。
 `daemon run` 前台运行，便于交给操作系统的服务管理器。
 未启动服务时，CLI 直接使用相同应用逻辑；不需要提前配置服务。
+
+## Topic 编号与开发分支
+
+用户引用 Topic 时统一使用 `T1`、`T2`，不补零。编号在同一项目的追加创建历史中稳定；关闭、调整里程碑/迭代/开发线不改变编号，超过 `T999` 后继续使用 `T1000`。原有 Topic 也按创建历史获得编号。
+
+查询 JSON 增加 `short_id`，保留机器关联用的长 `id`；创建预检/执行保留 `result` 并增加 `short_id`。例如 `rum tool workflow -- query --store meta --view show --table topics --id T1`，以及 `rum tool workflow -- document --store meta --table topics --id T1 --field context`。结构化操作参数支持短编号；Task 可写作 `T1/t001`。既有长 ID、正文路径与历史引用继续可用，不接受 `T-1` 或 `T01`。
+
+新分支建议为 `feat/T42-export-report`；类型保留 `feat/fix/docs/refactor/chore`，spike 使用 chore。显式合法名称和已有分支关联优先，名称不决定 Topic 归属。
+
+短编号的作用域为 Project 的共同历史。共享 Store 上预检后有其他写入，需刷新预检再执行。不同设备离线新建时可能出现相同临时编号；长 ID 仍区分身份，同步会停止自动合并并保留冲突候选，错误列出冲突编号及双方长 ID。先决定分配顺序，从共同历史通过正常预检/API 重放创建（用原 `id` 和 `id_reason`），再以长 ID 重放后续操作，恢复文档/关联并检查；仅在候选正确后显式接受。共同历史编号保持，尚未共享的编号按恢复顺序确认；冲突期间用完整长 ID 沟通，不手改 state.json。

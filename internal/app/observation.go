@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"regexp"
+	"rumsdlc/internal/core"
 	"rumsdlc/internal/fsutil"
 	"strconv"
 	"strings"
@@ -53,6 +54,9 @@ func (o *operation) observe(p Object) Object {
 	report := Object{"observed_at": fsutil.Now(), "blocking": false, "status": "not-requested", "scope": "registered-remote-review", "local_code_inspected": false, "topics": []any{}, "findings": []any{}, "note": "Historical remote merge facts only. No proof of current target content, tests, acceptance or permission to push."}
 	topic := str(p["topic"])
 	if p["topic"] != nil {
+		var err error
+		topic, err = core.CanonicalReference(state, topic)
+		must(err)
 		require(has(object(state["topics"], "topics"), topic), "Unknown Topic")
 	}
 	if !truth(p["remote"]) {
@@ -67,7 +71,7 @@ func (o *operation) observe(p Object) Object {
 		return report
 	}
 	binding := object(review, "review")
-	row := Object{"topic_id": topic, "url": binding["url"], "expected_target_branch": binding["target_branch"], "status": "unknown", "observed_at": fsutil.Now()}
+	row := Object{"short_id": core.ShortReference(state, topic), "topic_id": topic, "url": binding["url"], "expected_target_branch": binding["target_branch"], "status": "unknown", "observed_at": fsutil.Now()}
 	report["topics"] = []any{row}
 	reader := o.device.Review
 	if reader == nil {

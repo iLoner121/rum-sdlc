@@ -9,9 +9,19 @@ import (
 // Query derives views from an already validated snapshot. It never reads documents.
 func Query(s Object, p Object) (result Object, err error) {
 	defer catch(&err)
+	defer func() {
+		if err == nil && result != nil {
+			if option(p, "view", "overview") != "history" {
+				result = numberedResult(s, result)
+			}
+		}
+	}()
 	view := option(p, "view", "overview")
 	table := str(p["table"])
 	id := str(p["identifier"])
+	if (contains("resolve task-summary history", view) || view == "show" && contains("topics tasks", table)) && id != "" {
+		id = canonicalReference(s, TopicNumbers(s), id)
+	}
 	kind := str(p["kind"])
 	offset, limit := 0, 30
 	if has(p, "offset") {

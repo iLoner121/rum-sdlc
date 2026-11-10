@@ -93,6 +93,10 @@ Windows PowerShell 使用 `./rum.exe install`。默认路径如下，`~` 表示�
 本地使用不要求 GitHub 登录。`rum explain` 可取得内置离线手册，`rum COMMAND --help` 查看具体参数。
 同步、代码关联和升级流程见[使用手册](internal/assets/docs/usage.md)。
 
+## Topic 编号
+
+Topic 的用户编号统一为 `T1`、`T2`，项目内按创建历史连续分配，不补零、不复用。查询与创建输出增加 `short_id`；命令、文档和代码关联可用短编号，原长 ID 和文档路径继续有效。新开发分支默认建议 `feat/T42-export-report`，显式名称与已有映射优先。两设备离线创建产生分叉时，先显式恢复冲突、确认分配顺序；详见[使用手册](internal/assets/docs/usage.md#topic-编号与开发分支)。
+
 ## 代码结构
 
 | 目录 | 职责 |
