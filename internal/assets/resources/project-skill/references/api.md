@@ -93,6 +93,8 @@ python3 -B <工程>/.agents/skills/rum-project/scripts/workflow.py document --st
 python3 -B <工程>/.agents/skills/rum-project/scripts/workflow.py document --store <目录> --table topics --id <T-ID> --field context
 ```
 
+Iteration、Milestone 使用 `--field description`（默认字段）维护 DESCRIPTION.md；`context` 和 Task 文档按项目规则仅用于 Topic。通用文档接口允许选择字段，不会在创建迭代或里程碑时自动创建 TASK_CONTEXT。
+
 返回真实路径、当前 hash、是否存在和系统元数据；可直接编辑正文。经接口更新时用 --content-file <UTF8文件> --expect-hash <已读hash>；拒绝过期文档写入。--ensure 幂等创建骨架，不覆盖现有内容。field 为小写 kebab-case，context/design/prd 有固定文件名，其余作为独立 Markdown 字段。Task 的 id 为完整 T-ID/tNNN；closed 文档通过接口纠错需 --correction。项目 rules 字段供已确认的定制说明，不改变固定 JSON schema。
 
 所有 CLI 成功退出 0，参数语法错误 2，结构/业务/IO 错误 1；保留现场并按实际错误恢复。业务写入是原子快照，Git 操作和自由文档不被伪装成同一个跨系统事务。

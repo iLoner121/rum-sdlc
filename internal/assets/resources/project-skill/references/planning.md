@@ -1,5 +1,7 @@
 # 规划与关系维护
 
+Iteration、Milestone 的说明统一使用 document 的 description 字段，定位 DESCRIPTION.md；每个实体只维护这一份基础说明，按实际需要记录目标、范围选择及调整理由、关键决定、复核和结束纪要，不要求预建空章节。TASK_CONTEXT 与 Task 仅用于 Topic，规划工作不在 Iteration 或 Milestone 下建立执行文档；具体需求、设计与验收引用相关 Topic，成员和进度通过系统查询。已有规划层 TASK_CONTEXT 在整理时将有效纪要并入 DESCRIPTION.md，保留重要决定并修复引用，不保留两份正文。
+
 Project 是数据边界。M 管有顺序的阶段目标，工作集合管当前选择，Line 管代码交付路线；三者独立，不嵌套、不强制一一对应。
 
 新需求先写 Pool 的候选正文，记录动机、未知与优先理由，不立即创建空 Topic。ITER 可先建空 draft 并说明目标、候选和待拆分事项；选定内容足够明确后创建或复用 Topic，propose 提出成员，用户确认范围后 activate 冻结初始范围。认可计划不自动授权整批实施、具体代码提交或推送。

@@ -88,15 +88,42 @@ func desiredResources(root, meta, id, home, name string) map[string][]byte {
 	context := Object{"format": "rum-agent-context/1", "project_id": id, "workspace": root, "meta": filepath.Join(root, "meta"), "code_binding": "Read rum.py context for actual device paths", "device_home": home, "core_scripts": filepath.Join(root, filepath.FromSlash(prefix), "native-core"), "runtime": executable, "runtime_kind": "go-native", "version": Version}
 	result[".rum-context.json"] = jsonBytes(context)
 	entry := "# RumSDLC Project\n\n工程：" + name + "；Project：" + id + "\n\n" +
-		"- 从本工程根目录启动会话。code/ 是默认代码目录；实际关联以 context 为准，meta/ 是独立管理数据目录。\n" +
-		"- 已安装全局入口为 rum；本目录 rum.py 是自动补全 Project 的便捷入口。\n" +
-		"- 接管时运行 python3 rum.py context 与 python3 rum.py doctor，读取返回的实际入口。\n" +
-		"- 项目操作采用 [.agents/skills/rum-project/SKILL.md](.agents/skills/rum-project/SKILL.md)。\n" +
-		"- 先确定本会话处理的 Topic；不依赖项目共享的当前 Topic，不自动领取下一项。\n" +
-		"- 系统写入先预检再提交；不得直接修改 meta/state.json。Git 同步不代表业务验收。\n" +
-		"- 代码关联以 context 为准；本体不检查本地代码；远端事实仅按显式请求查询，不自动改变流程状态。\n" +
-		"- 代码获取、现场核验及 Git 操作由 agent 按项目 skill 执行；检查不完整必须按 git-fallback.md 补证，不能直接推送；代码目录的开发规则继续适用。\n" +
-		"- 新建 Topic 时按 skill 的 context 模板准备 TASK_CONTEXT；其他文档按需建立。\n"
+		"## 接管入口\n" +
+		"\n" +
+		"- 从工程根目录启动会话。已安装全局入口为 rum；本目录 rum.py 自动补全 Project。\n" +
+		"- 先运行 python3 rum.py context 与 python3 rum.py doctor，读取实际 Store、代码路径、运行时和 skill 入口。doctor 只检查管理系统，不证明代码或业务验收通过。\n" +
+		"- 项目操作采用 [.agents/skills/rum-project/SKILL.md](.agents/skills/rum-project/SKILL.md)，按活动读取其引用准则；代码目录自身的有效开发规则继续适用。\n" +
+		"- 项目查询、规划和汇报不必选择执行 Topic；开始具体需求活动前明确本会话 Topic，读取其 TASK_CONTEXT.md 和当前 Task。不依赖全局当前 Topic，不自动领取下一项。\n" +
+		"\n" +
+		"## 目录与文档职责\n" +
+		"\n" +
+		"code/ 是默认代码目录，实际关联以 context 为准；meta/ 是独立管理数据目录。下表路径均相对于实际 Store，由 document 接口定位，不按显示名称或短编号猜测实体目录。\n" +
+		"\n" +
+		"| 对象 | 正文入口 | 用途 |\n" +
+		"|---|---|---|\n" +
+		"| Project | `documents/project/<Project-ID>/DESCRIPTION.md` | 项目目标、范围与已确认约束 |\n" +
+		"| Milestone | `documents/milestones/<M-ID>/DESCRIPTION.md` | 阶段目标、交付条件及重要纪要 |\n" +
+		"| Iteration / Pool | `documents/worksets/<ITER-ID 或 POOL>/DESCRIPTION.md` | 迭代目标、范围决定、复核和结束纪要；Pool 保存候选想法与优先理由 |\n" +
+		"| Line | `documents/lines/<Line-ID>/DESCRIPTION.md` | 交付路线、适用范围与保留/退出说明 |\n" +
+		"| Topic | `documents/topics/<Topic-ID>/TASK_CONTEXT.md` | 目标、验收条件、当前有效方案、文档入口与恢复点 |\n" +
+		"| Task | `documents/topics/<Topic-ID>/tasks/tNNN.md` | 一件活动的输入、过程、产物、结论与交接 |\n" +
+		"\n" +
+		"- TASK_CONTEXT.md 和 Task 活动文档仅用于 Topic。Milestone、Iteration 各维护一份 DESCRIPTION.md，不套用执行上下文或另建任务、设计、验收文档。\n" +
+		"- Topic 开题按 skill 的 context 模板准备上下文；PRD.md、DESIGN.md、acceptance.md 按需求、设计和验收准则逐步建立，不批量生成空文件。独立正文建立后，上下文只留摘要和链接。\n" +
+		"- 产品当前架构、接口契约及长期技术决策随代码维护，位置与准则见 skill 的 references/design.md；本次拟议方案和执行过程保留在 Topic/Task。\n" +
+		"- 正文记录目标、理由和证据；实体身份、状态、归属、成员、排序和历史以系统查询为准，不维护第二份可编辑台账。重要决定保留来源和日期，具体内容只维护一处并引用。\n" +
+		"\n" +
+		"## 数据保护与执行边界\n" +
+		"\n" +
+		"- 实体及关系写入先预检，再用返回令牌执行；不得直接修改 meta/state.json。正文通过 document 接口定位和检查，按需编辑并修复引用；文件存在不证明相应活动已完成。\n" +
+		"- 通用文档接口允许选择字段；创建 Milestone、Iteration 或 Topic 不会自动完成所需正文，agent 应按上述职责准备文档。\n" +
+		"- Task done、Git 同步、代码合并与业务验收分别核实；不得互相替代或据此自动推进生命周期。\n" +
+		"\n" +
+		"## 代码与 Git\n" +
+		"\n" +
+		"- 代码获取、现场核验及 Git 操作由 agent 按项目 skill 执行。本体不检查本地代码；远端事实仅按用户明确请求查询，不自动改变流程状态。\n" +
+		"- Git 操作前运行 repo_check.py inspect；检查不完整时按 skill 的 references/git-fallback.md 补证，关键事实未知时停止对应动作。\n" +
+		"- 提交前核对实际分支、差异、有效 author/committer、消息、验证和目标，按 Git 准则落实用户授权，不绕过 hook 或签名。保留未提交现场，不自动 stash/reset/force/prune 或删除成果。\n"
 	result["AGENTS.md"] = []byte(entry)
 	result["rum.py"] = []byte(`#!/usr/bin/env python3
 import json,os,sys
