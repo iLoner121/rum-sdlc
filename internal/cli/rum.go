@@ -16,7 +16,9 @@ import (
 	"rumsdlc/internal/fsutil"
 	"rumsdlc/internal/installation"
 	"rumsdlc/internal/jsonvalue"
+	"rumsdlc/internal/release"
 	"rumsdlc/internal/service"
+	"rumsdlc/internal/update"
 	"sort"
 	"strconv"
 	"strings"
@@ -108,7 +110,7 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 		home = value
 	}
 	if len(args) == 1 && args[0] == "--version" {
-		fmt.Fprintln(out, app.Version)
+		fmt.Fprintln(out, release.Current().Display())
 		return nil
 	}
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
@@ -132,6 +134,22 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 	}
 	if _, e = service.Endpoint(root); e != nil {
 		return e
+	}
+	if method == "version" || method == "update" || method == "update-status" || method == "update-apply" || method == "update-helper-capabilities" {
+		result, err := updateCommand(ctx, root, method, args, out)
+		if errors.Is(err, flag.ErrHelp) {
+			if spec, ok := catalog.Specs[method]; ok {
+				fmt.Fprintln(out, catalog.Usage(method, spec))
+				return nil
+			}
+		}
+		if err != nil {
+			return err
+		}
+		if method == "update-apply" {
+			return nil
+		}
+		return json.NewEncoder(out).Encode(app.Object{"ok": true, "result": result})
 	}
 	if method == "install" {
 		spec := catalog.Parse("destination bin-dir +recover-only +confirm-legacy-idle +prepare-only")
@@ -315,7 +333,17 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 	encoder := json.NewEncoder(out)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(app.Object{"ok": true, "result": result})
+	if e = encoder.Encode(app.Object{"ok": true, "result": result}); e != nil {
+		return e
+	}
+	if terminal, ok := stderr.(*os.File); ok {
+		if stat, err := terminal.Stat(); err == nil && stat.Mode()&os.ModeCharDevice != 0 {
+			if msg := update.New(root).Notice(); msg != "" {
+				fmt.Fprintln(stderr, msg)
+			}
+		}
+	}
+	return nil
 }
 func credential(ctx context.Context, args []string, in io.Reader, out io.Writer) error {
 	login := ""

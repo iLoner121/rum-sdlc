@@ -177,3 +177,44 @@ rum daemon stop
 `device` 默认使用本机 hostname，名称不可用时回退本机登记的 device_id；字段按引号字符串转义，保持单行。
 这些信息在消息中重复呈现是为了统一浏览，不用于推导 Project 身份或同步权限。
 无变化不创建新提交，既有历史消息不重写；产品代码仓库仍遵守自己的提交规范。
+
+## 检查更新与本机自更新
+
+```text
+rum version
+rum check-update
+rum update-status
+rum update-config --enabled true
+rum daemon start
+rum update-ack --version 1.0.0
+rum daemon stop
+rum update
+rum update-status --operation 操作编号
+```
+
+`version` 返回发行版本、渠道、提交和 dirty 信息；`--version` 保留便捷单行。
+正式发行版本仍按 SemVer 推进，开发构建附带来源，不与工作流协议混淆。
+
+小时检查默认关闭。启用配置不会启动服务；服务运行时才检查，停服后配置保留。
+检查仅提示，命令行下次交互显示同版本一次提醒，JSON 输出不会夹杂提醒；
+`update-status` 可以随时查询最近结果。暂不发送原生桌面通知。
+
+`update` 固定一个公开稳定 Release，下载同发布的包及 checksums.json，验证后
+启动原生安装协作者。命令返回 `queued` 和操作编号不代表安装已完成；旧命令和
+启动器退出、安装门禁可用后才切换，最终结果以 `update-status` 的 installed 为准。
+运行中的服务会阻挡安装，请先正常 `daemon stop`；不自动停服或强杀进程。
+
+开发/unknown 构建默认不被稳定包覆盖。明确需要切回稳定版时使用：
+
+```text
+rum update --channel stable --allow-channel-switch
+```
+
+目标版本核心更低时还需显式 `--allow-downgrade`；旧包缺少安全交接能力时返回
+外部安装指引，不冒充完成自动更新。portable 直接运行且没有托管安装信息时，
+先用原始程序的 install 建立明确入口。
+
+更新保留旧程序、home、命令目录、已有工程和检查配置，不自动 project-update。
+安装中断时保留事务和已校验的解压程序，按提示从原始程序执行 install --recover-only。
+本机状态命令在事务恢复期间仍可读取；不要手改入口、删除锁或恢复记录。
+公开查询不强制登录；已有 GH_TOKEN/GITHUB_TOKEN 可用于 API 限流，附件跨域不携带认证。

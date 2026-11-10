@@ -13,7 +13,8 @@ import time
 
 binary=Path(os.environ.get('RUM_NATIVE_BINARY','./rum')).resolve()
 version=subprocess.check_output([str(binary),'--version'],text=True).strip()
-assert version=='0.9.0'
+identity=json.loads(subprocess.check_output([str(binary),'version'],text=True))['result']
+assert identity['format']=='rum-build/1' and identity['version']
 with tempfile.TemporaryDirectory(prefix='rum-install-',dir='/private/tmp') as temp:
     root=Path(temp); home=root/'home'; commands=root/'commands'; release=root/'release'
     env=dict(os.environ,PATH='',RUMSDLC_HOME=str(home))

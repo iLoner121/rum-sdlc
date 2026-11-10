@@ -150,3 +150,15 @@ POSIX 依赖保留，符合本次仅重构系统层的范围。
 管理仓库的自动提交消息统一为 `时间戳 | user="姓名 <邮箱>" | device="设备名"`。
 时间采用带时区的 RFC3339 格式，与 Git 提交日期一致；不再附带检查点、合并或项目编号等业务描述。
 代码仓库的提交规范独立，不受此格式影响。
+
+## 更新与发布
+
+`rum version` 查看完整构建身份，`rum check-update` 只检查最新稳定发布。
+`rum update-config --enabled true` 启用默认关闭的小时检查，需要显式启动 daemon；
+发现更新后仅提示，不自动安装。停止服务后运行 `rum update`，通过返回的操作编号
+查询 `rum update-status`；只有 installed 才表示最终入口验证成功。
+开发构建切回稳定版需显式选择渠道。详见[更新与恢复](internal/assets/docs/usage.md#检查更新与本机自更新)。
+
+本仓库采用 SemVer 与发布 PR：main 变更自动汇总为候选 PR，维护者合并后，固定
+提交在三端测试并生成六平台包与校验文件，附件完整才公开 GitHub Release。
+内嵌 skill 的修订也纳入发版判定。该自动化仅属于 RumSDLC，不作为被管理项目的统一发布策略。

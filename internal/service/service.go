@@ -15,6 +15,7 @@ import (
 	"rumsdlc/internal/app"
 	"rumsdlc/internal/fsutil"
 	"rumsdlc/internal/jsonvalue"
+	"rumsdlc/internal/update"
 	"sync"
 	"time"
 )
@@ -136,6 +137,8 @@ func serve(ctx context.Context, device *app.Device, interval, discoveryInterval 
 	}
 	defer os.Remove(filepath.Join(home, "service.json"))
 	var workers sync.WaitGroup
+	workers.Add(1)
+	go func() { defer workers.Done(); update.New(home).Schedule(ctx) }()
 	workers.Add(1)
 	go func() {
 		defer workers.Done()

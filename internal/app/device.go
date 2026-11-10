@@ -8,12 +8,25 @@ import (
 	"rumsdlc/internal/core"
 	"rumsdlc/internal/fsutil"
 	"rumsdlc/internal/store"
+	"rumsdlc/internal/update"
 	"strings"
 )
 
 func (o *operation) dispatch(method string, p Object) (result any, err error) {
 	defer guard(&err)
 	switch method {
+	case "check-update":
+		return update.New(o.device.Home).Check(o.ctx)
+	case "update-status":
+		return update.Status(o.device.Home, str(p["operation"]))
+	case "update-config":
+		value := str(p["enabled"])
+		if value != "true" && value != "false" {
+			return nil, fmt.Errorf("enabled must be true or false")
+		}
+		return update.New(o.device.Home).Configure(value == "true")
+	case "update-ack":
+		return update.New(o.device.Home).Ack(str(p["version"]))
 	case "observe-code":
 		return o.observe(p), nil
 	case "workspace-init":

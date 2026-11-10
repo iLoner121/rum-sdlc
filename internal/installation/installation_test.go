@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -191,5 +192,31 @@ func TestSnapshotPreservesMode(t *testing.T) {
 	raw, _ := json.Marshal(transaction{"rum-runtime-activation/1", home, "applying", []update{{path, nil, value}}})
 	if e = json.Unmarshal(raw, &tx); e != nil || string(decoded) != "native" {
 		t.Fatal(e)
+	}
+}
+
+func TestExpectedActiveRejectsStaleUpdateBeforeActivation(t *testing.T) {
+	root := ""
+	if runtime.GOOS == "darwin" {
+		root = "/private/tmp"
+	}
+	home, e := os.MkdirTemp(root, "ru-")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer os.RemoveAll(home)
+	home, e = filepath.EvalSymlinks(home)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(home, "active.json"), []byte(`{"version":"changed"}`), 0600); e != nil {
+		t.Fatal(e)
+	}
+	_, e = Install(context.Background(), Options{Home: home, Destination: filepath.Join(home, "payload"), BinDir: filepath.Join(home, "bin"), ExpectedActive: "stale"})
+	if e == nil || !strings.Contains(e.Error(), "Active installation changed") {
+		t.Fatal(e)
+	}
+	if _, e = os.Stat(filepath.Join(home, "install-transaction.json")); !os.IsNotExist(e) {
+		t.Fatal("stale update entered activation")
 	}
 }

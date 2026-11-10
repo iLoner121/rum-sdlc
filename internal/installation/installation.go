@@ -15,9 +15,11 @@ import (
 	"rumsdlc/internal/app"
 	"rumsdlc/internal/fsutil"
 	"rumsdlc/internal/jsonvalue"
+	"rumsdlc/internal/release"
 	"rumsdlc/internal/service"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -42,6 +44,7 @@ type transaction struct {
 type Options struct {
 	Destination, Home, BinDir      string
 	RecoverOnly, ConfirmLegacyIdle bool
+	ExpectedActive                 string
 }
 
 func safe(path string) (string, error) {
@@ -287,6 +290,12 @@ func Install(ctx context.Context, o Options) (app.Object, error) {
 		return nil, e
 	}
 	defer lease.Close()
+	if o.ExpectedActive != "" {
+		raw, err := os.ReadFile(filepath.Join(o.Home, "active.json"))
+		if err != nil || jsonvalue.HashBytes(raw) != o.ExpectedActive {
+			return nil, fmt.Errorf("Active installation changed; prepare update again")
+		}
+	}
 	if raw, err := os.ReadFile(filepath.Join(o.Home, journalName)); err == nil {
 		tx, journal, err := parseTransaction(raw, o.Home)
 		if err != nil {
@@ -326,7 +335,7 @@ func Install(ctx context.Context, o Options) (app.Object, error) {
 		return nil, e
 	}
 	version, e := exec.CommandContext(ctx, source, "--version").Output()
-	if e != nil || strings.TrimSpace(string(version)) != app.Version {
+	if e != nil || strings.TrimSpace(string(version)) != release.Current().Display() {
 		return nil, fmt.Errorf("New runtime failed version preflight")
 	}
 	name := "rum"
@@ -356,7 +365,7 @@ func Install(ctx context.Context, o Options) (app.Object, error) {
 		if e = replace(filepath.Join(stage, name), contents(raw, 0755)); e != nil {
 			return nil, e
 		}
-		if e = fsutil.WriteJSON(filepath.Join(stage, "MANIFEST.json"), app.Object{"name": "rum-sdlc-native", "version": app.Version, "files": app.Object{name: jsonvalue.HashBytes(raw)}}); e != nil {
+		if e = fsutil.WriteJSON(filepath.Join(stage, "MANIFEST.json"), app.Object{"name": "rum-sdlc-native", "version": app.Version, "build_identity": release.Current(), "files": app.Object{name: jsonvalue.HashBytes(raw)}}); e != nil {
 			return nil, e
 		}
 		if e = os.Rename(stage, o.Destination); e != nil {
@@ -398,7 +407,7 @@ func activate(ctx context.Context, o Options, runtimePath, name, launcher string
 		}
 		hashes[item.Path] = jsonvalue.HashBytes(data)
 	}
-	active := app.Object{"version": app.Version, "runtime": runtimePath, "bin": entry, "runtime_gate": 1, "runtime_kind": "go-native", "native_launchers": hashes}
+	active := app.Object{"version": app.Version, "build_identity": release.Current(), "runtime": runtimePath, "bin": entry, "runtime_gate": 1, "runtime_kind": "go-native", "native_launchers": hashes}
 	desired = append(desired, update{Path: filepath.Join(o.Home, "active.json"), After: jsonContent(active)})
 	updates := []update{}
 	for _, item := range desired {
@@ -548,6 +557,7 @@ func LaunchManaged(ctx context.Context, args []string, in io.Reader, out, stderr
 	}
 	command := exec.CommandContext(ctx, runtimePath, args...)
 	configureManaged(command)
+	command.Env = append(os.Environ(), "RUMSDLC_LAUNCHER_PID="+strconv.Itoa(os.Getpid()))
 	command.Stdin = in
 	command.Stdout = out
 	command.Stderr = stderr

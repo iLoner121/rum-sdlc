@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"rumsdlc/internal/release"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -37,7 +39,7 @@ func build() error {
 			name += ".exe"
 		}
 		path := filepath.Join(directory, name)
-		command := exec.Command(goTool, "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", path, "./cmd/rum")
+		command := exec.Command(goTool, "build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -X rumsdlc/internal/release.Channel="+release.Channel+" -X rumsdlc/internal/release.Commit="+release.Commit+" -X rumsdlc/internal/release.Dirty="+release.Dirty+" -X rumsdlc/internal/release.BuiltAt="+release.BuiltAt, "-o", path, "./cmd/rum")
 		command.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.OS, "GOARCH="+target.Arch)
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
@@ -79,7 +81,16 @@ func build() error {
 	}
 	sourceHash := sha256.Sum256(source)
 	checksums[sourceName] = hex.EncodeToString(sourceHash[:])
-	data, e := json.MarshalIndent(map[string]any{"version": release.Version, "implementation": "go-native", "go_version": runtime.Version(), "runtime_dependencies": []string{"Git for repository operations; project scripts keep their Python/tool dependencies"}, "acceptance": "See ACCEPTANCE.md for execution evidence; cross-compilation alone is not runtime acceptance", "files": checksums}, "", "  ")
+	manifest, e := json.MarshalIndent(map[string]any{"format": "rum-release/1", "version": release.Version, "source_commit": release.Commit, "channel": release.Channel, "platforms": targets}, "", "  ")
+	if e != nil {
+		return e
+	}
+	if e = os.WriteFile(filepath.Join(directory, "release-manifest.json"), append(manifest, '\n'), 0644); e != nil {
+		return e
+	}
+	mh := sha256.Sum256(append(manifest, '\n'))
+	checksums["release-manifest.json"] = hex.EncodeToString(mh[:])
+	data, e := json.MarshalIndent(map[string]any{"version": release.Version, "source_commit": release.Commit, "channel": release.Channel, "implementation": "go-native", "go_version": runtime.Version(), "runtime_dependencies": []string{"Git for repository operations; project scripts keep their Python/tool dependencies"}, "acceptance": "See ACCEPTANCE.md for execution evidence; cross-compilation alone is not runtime acceptance", "files": checksums}, "", "  ")
 	if e != nil {
 		return e
 	}
@@ -89,8 +100,8 @@ func build() error {
 // Source and executable packages share one release identity and checksum index.
 // The source manifest records the exact code, docs and acceptance evidence.
 func sourceArchive(path string) error {
-	names := []string{"go.mod", ".gitignore", ".gitattributes", "README.md", "ACCEPTANCE.md", "CHANGELOG.md"}
-	for _, folder := range []string{"cmd", "internal", "tests", ".github", "evidence", "installer-skill"} {
+	names := []string{"go.mod", ".gitignore", ".gitattributes", "README.md", "ACCEPTANCE.md", "CHANGELOG.md", "release-please-config.json", ".release-please-manifest.json"}
+	for _, folder := range []string{"cmd", "internal", "tests", ".github", "evidence", "installer-skill", "docs"} {
 		err := filepath.WalkDir(folder, func(name string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -197,6 +208,37 @@ func tarBinary(path, name string, raw []byte) error {
 	return f.Close()
 }
 func main() {
+	channel := flag.String("channel", "dev", "dev or stable")
+	commit := flag.String("commit", "", "exact source SHA")
+	flag.Parse()
+	rev, e := exec.Command("git", "rev-parse", "HEAD").Output()
+	if e == nil {
+		release.Commit = strings.TrimSpace(string(rev))
+	} else {
+		release.Commit = "unknown"
+	}
+	dirty, e := exec.Command("git", "status", "--porcelain").Output()
+	release.Dirty = "false"
+	if e != nil || len(dirty) > 0 {
+		release.Dirty = "true"
+	}
+	release.Channel = *channel
+	if *channel != "dev" && *channel != "stable" {
+		fmt.Fprintln(os.Stderr, "invalid build channel")
+		os.Exit(1)
+	}
+	if *commit != "" && *commit != release.Commit {
+		fmt.Fprintln(os.Stderr, "source SHA differs from requested commit")
+		os.Exit(1)
+	}
+	if *channel == "stable" && (*commit == "" || release.Dirty != "false" || release.Current().Validate() != nil) {
+		fmt.Fprintln(os.Stderr, "stable build requires a clean fixed SHA")
+		os.Exit(1)
+	}
+	date, e := exec.Command("git", "show", "-s", "--format=%cI", "HEAD").Output()
+	if e == nil {
+		release.BuiltAt = strings.TrimSpace(string(date))
+	}
 	if e := build(); e != nil {
 		fmt.Fprintln(os.Stderr, e)
 		os.Exit(1)

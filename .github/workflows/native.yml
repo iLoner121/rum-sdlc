@@ -18,11 +18,13 @@ jobs:
       - run: git --version
       - run: go test -race -count=1 ./...
       - run: go vet ./...
+      - run: python3 -m unittest discover -s .github/scripts -p "*_test.py"
       - run: go build -trimpath ./cmd/rum
       - shell: bash
         run: |
           if [ -f rum.exe ]; then ./rum.exe --version; else ./rum --version; fi
   distribution:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
