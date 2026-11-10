@@ -59,7 +59,7 @@ func (m *Manager) lock(name string) (*fsutil.Lock, error) {
 	if e != nil {
 		return nil, e
 	}
-	return fsutil.Acquire(p, true, false)
+	return fsutil.Acquire(p, true, name == "state.lock")
 }
 func read(path string, v any) error {
 	b, e := os.ReadFile(path)

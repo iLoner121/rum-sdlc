@@ -232,7 +232,7 @@ func TestHourlyScheduleAndDisable(t *testing.T) {
 		}
 	}
 	await()
-	time.Sleep(30 * time.Millisecond)
+	waitSaved(t, m)
 	now.Add(3599)
 	select {
 	case <-events:
@@ -241,7 +241,7 @@ func TestHourlyScheduleAndDisable(t *testing.T) {
 	}
 	now.Add(1)
 	await()
-	time.Sleep(30 * time.Millisecond)
+	waitSaved(t, m)
 	if _, e := m.Configure(false); e != nil {
 		t.Fatal(e)
 	}
@@ -273,5 +273,20 @@ func TestReleaseWithdrawalAndCrossHostToken(t *testing.T) {
 	req, _ = http.NewRequest("GET", "https://example.org/file", nil)
 	if redirect(req, nil) == nil {
 		t.Fatal("untrusted redirect allowed")
+	}
+}
+
+func waitSaved(t *testing.T, m *Manager) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		s, e := m.State()
+		if e == nil && s.CheckedAt.Equal(m.Now()) && s.NextDue.Equal(m.Now().Add(time.Hour)) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("check did not persist its scheduled state", e)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
