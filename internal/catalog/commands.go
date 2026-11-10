@@ -35,7 +35,7 @@ var Specs = map[string]Spec{
 	"context": Parse("path project"), "doctor": Parse("path project"), "observe-code": Parse("path project +remote topic"), "project-update": Parse("project! +dry-run expect-revision"), "agent-install": Parse("project!"),
 	"workspace-import": Parse("repository! parent! name"), "workspace-adopt": Parse("path! date! name"), "workspace-init": Parse("parent! date! name"), "workspace-recover": Parse("operation-id!"),
 	"create": Parse("path! name! date! project-id"), "register": Parse("path!"), "scan": Parse("root!"), "bind-code": Parse("project! path repository kind topic branch +clear-branch +clear-repository review-url target-branch +clear-review"),
-	"enable": Parse("project! repository +accept-empty"), "disable": Parse("project!"), "sync": Parse("project!"), "resolve": Parse("project! conflict-id! +accept"), "conflict-retry": Parse("project! conflict-id!"), "import": Parse("repository! path!"), "platform": Parse("project! operation! args"),
+	"repository-plan": Parse("project! name"), "enable": Parse("project! repository repository-name +accept-empty"), "disable": Parse("project!"), "sync": Parse("project!"), "resolve": Parse("project! conflict-id! +accept"), "conflict-retry": Parse("project! conflict-id!"), "import": Parse("repository! path!"), "platform": Parse("project! operation! args"),
 }
 
 func Usage(name string, spec Spec) string {
@@ -54,7 +54,7 @@ func Usage(name string, spec Spec) string {
 	return b.String()
 }
 
-const Methods = "identity setup list register create scan bind-code observe-code discover enable disable import sync resolve conflict-retry platform tick workspace-adopt workspace-import workspace-recover workspace-init agent-install project-update context doctor explain project-identity"
+const Methods = "identity setup list register create scan bind-code observe-code discover repository-plan enable disable import sync resolve conflict-retry platform tick workspace-adopt workspace-import workspace-recover workspace-init agent-install project-update context doctor explain project-identity"
 
 func Help() map[string]any {
 	help := map[string]any{}

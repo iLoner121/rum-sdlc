@@ -166,7 +166,7 @@ func TestNativeGitTwoDeviceSyncAndDocumentDeletion(t *testing.T) {
 	record := create(t, a, root)
 	doc(t, str(record["path"]), "notes.md", "base\n")
 	call(t, a, "enable", Object{"project_id": "P-demo"})
-	imported := call(t, b, "import", Object{"repository": "alice/RumSDLC_P-demo", "path": filepath.Join(root, "project-b")})
+	imported := call(t, b, "import", Object{"repository": "alice/RumSDLC_Demo", "path": filepath.Join(root, "project-b")})
 	raw, e := os.ReadFile(filepath.Join(str(imported["path"]), "documents", "notes.md"))
 	if e != nil || string(raw) != "base\n" {
 		t.Fatalf("%s %v", raw, e)
@@ -191,7 +191,7 @@ func TestNativeSyncConflictRetentionAndAcceptedRecovery(t *testing.T) {
 	record := create(t, a, root)
 	doc(t, str(record["path"]), "note.md", "base\n")
 	call(t, a, "enable", Object{"project_id": "P-demo"})
-	imported := call(t, b, "import", Object{"repository": "alice/RumSDLC_P-demo", "path": filepath.Join(root, "project-b")})
+	imported := call(t, b, "import", Object{"repository": "alice/RumSDLC_Demo", "path": filepath.Join(root, "project-b")})
 	doc(t, str(record["path"]), "note.md", "A\n")
 	doc(t, str(imported["path"]), "note.md", "B\n")
 	call(t, a, "sync", Object{"project_id": "P-demo"})
@@ -224,7 +224,7 @@ func TestNativeBusinessMergeCommutesOnlyDisjointEntities(t *testing.T) {
 	create(t, a, root)
 	milestone := command(t, a, "milestone.create", Object{"name": "Stage"})["result"]
 	call(t, a, "enable", Object{"project_id": "P-demo"})
-	call(t, b, "import", Object{"repository": "alice/RumSDLC_P-demo", "path": filepath.Join(root, "project-b")})
+	call(t, b, "import", Object{"repository": "alice/RumSDLC_Demo", "path": filepath.Join(root, "project-b")})
 	command(t, a, "entity.rename", Object{"table": "project", "id": "P-demo", "name": "Renamed Project"})
 	command(t, b, "entity.rename", Object{"table": "milestones", "id": milestone, "name": "Renamed Stage"})
 	call(t, a, "sync", Object{"project_id": "P-demo"})

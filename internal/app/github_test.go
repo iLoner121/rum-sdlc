@@ -155,3 +155,45 @@ func TestReviewIdentityAndMergeEvidence(t *testing.T) {
 		}
 	}
 }
+
+func TestGitHubManifestErrorClassification(t *testing.T) {
+	t.Setenv("GH_TOKEN", "fixture-secret")
+	for _, code := range []int{404, 403, 429, 500} {
+		g := NewGitHub()
+		g.Client.Transport = testTransport(func(r *http.Request) (*http.Response, error) {
+			response := reply(r, Object{"message": "fixture-secret must not escape"})
+			response.StatusCode = code
+			return response, nil
+		})
+		_, err := g.Manifest(context.Background(), "alice/RumSDLC_test", "main")
+		want := "unavailable"
+		if code == 404 {
+			want = "missing"
+		}
+		if err == nil || manifestReadKind(err) != want || strings.Contains(err.Error(), "fixture-secret") {
+			t.Fatal(code, err)
+		}
+	}
+	g := NewGitHub()
+	g.Client.Transport = testTransport(func(r *http.Request) (*http.Response, error) {
+		return reply(r, Object{"type": "dir", "encoding": "base64"}), nil
+	})
+	if _, err := g.Manifest(context.Background(), "alice/RumSDLC_test", "main"); err == nil || manifestReadKind(err) != "invalid" {
+		t.Fatal(err)
+	}
+}
+
+func TestGitHubLegacyProjectDisplayName(t *testing.T) {
+	t.Setenv("GH_TOKEN", "fixture-secret")
+	g := NewGitHub()
+	g.Client.Transport = testTransport(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path != "/repos/alice/RumSDLC_old/contents/project-config.json" || r.URL.Query().Get("ref") != "branch/name" {
+			t.Fatal(r.URL)
+		}
+		return reply(r, Object{"type": "file", "encoding": "base64", "content": base64.StdEncoding.EncodeToString([]byte(`{"name":"Old display"}`))}), nil
+	})
+	name, err := g.ProjectDisplayName(context.Background(), "alice/RumSDLC_old", "branch/name")
+	if err != nil || name != "Old display" {
+		t.Fatal(name, err)
+	}
+}

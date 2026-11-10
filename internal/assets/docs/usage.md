@@ -142,3 +142,24 @@ rum daemon stop
 新分支建议为 `feat/T42-export-report`；类型保留 `feat/fix/docs/refactor/chore`，spike 使用 chore。显式合法名称和已有分支关联优先，名称不决定 Topic 归属。
 
 短编号的作用域为 Project 的共同历史。共享 Store 上预检后有其他写入，需刷新预检再执行。不同设备离线新建时可能出现相同临时编号；长 ID 仍区分身份，同步会停止自动合并并保留冲突候选，错误列出冲突编号及双方长 ID。先决定分配顺序，从共同历史通过正常预检/API 重放创建（用原 `id` 和 `id_reason`），再以长 ID 重放后续操作，恢复文档/关联并检查；仅在候选正确后显式接受。共同历史编号保持，尚未共享的编号按恢复顺序确认；冲突期间用完整长 ID 沟通，不手改 state.json。
+
+## 管理仓库命名与发现
+
+创建管理仓库时保留 `RumSDLC_` 前缀，后缀默认取已登记的代码仓库名，没有代码来源时取 Project 显示名。
+使用 `rum repository-plan --project ID` 取得可编辑建议；例如代码仓库 `source-app` 对应 `RumSDLC_source-app`。
+使用 `--name edited-name` 预览自定义结果，`rum enable --project ID --repository-name edited-name` 采用最终输入创建。
+显式输入可以是后缀，也可以含完整前缀；输入必须是合法 ASCII 仓库名，总长不超过 100 字符。
+自动建议会规整不支持的字符，结果为空时提示建议 `RumSDLC_project`，可继续编辑。
+原 `enable --repository owner/name` 用于明确选择既有仓库，与 `--repository-name` 互斥。
+同一 Project 已存在的有效仓库按身份恢复，旧长名称不自动改名；名称占用时选择其他名称，不自动覆盖。
+
+`rum discover` 只读取可访问的 `RumSDLC_` 前缀候选，逐一核验根目录 `.rumsdlc-project.json`。
+`manifest_status` 分为 `valid`、`missing`、`invalid`、`unavailable`；403、限流和网络失败不会伪装成文件不存在。
+`name` 是仓库名，`display_name` 是最佳可用展示名，`project_name` 是可获得的项目名，`name_source` 说明名称来自身份文件、本地项目、旧项目配置还是仓库名。
+缺少/无效身份文件的候选保留诊断，不自动注册为项目；无代码项目同样可以被发现。
+身份文件写入 `name` 展示项目名，现有三字段文件可读并在下一次同步时自动补充该字段；没有该字段时也可从现有 `project-config.json` 读取。显示名不用于判断 Project 身份。
+
+保留前缀的远端改名可以在显式 `sync` 或 `enable` 时恢复：必须同时核对数字仓库 ID、Project ID 和 genesis。
+核验成功才更新本地配置、设备绑定及单一的 origin fetch/push URL；不同仓库、身份文件不匹配或 origin 被另行修改时拒绝操作。
+远端旧名称已被其他仓库使用时，仍按原数字 ID 查找，不能按同名接管。整个流程不改变项目 ID、代码仓库关联或业务历史。
+该能力恢复已经发生的远端改名，不主动请求 GitHub 为仓库改名。

@@ -139,3 +139,10 @@ GitHub Actions 的 macOS/Linux/Windows 原生 Go 竞态测试、静态检查、�
 Rosetta 环境下的安装、直接使用和项目脚本验证。Linux/Windows 已在 CI 中执行原生 Go 测试，
 这不等于原有 281 项 Python 驱动回归已在这两个系统完整运行。项目 Python 脚本的原有
 POSIX 依赖保留，符合本次仅重构系统层的范围。
+
+## 管理仓库名称
+
+`rum repository-plan --project ID` 提供可编辑的名称建议；优先使用关联代码仓库名，再使用项目显示名。
+`--name 自定义后缀` 可预览编辑后的名称，创建时用 `rum enable --project ID --repository-name 自定义后缀`。
+管理仓库保留 `RumSDLC_` 前缀，名称占用会提示选择，原 `--repository owner/name` 继续选择既有仓库。
+发现结果分别展示仓库名、项目显示名和身份文件状态；旧长名可继续使用。详见[使用手册](internal/assets/docs/usage.md#管理仓库命名与发现)。

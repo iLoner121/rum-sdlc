@@ -146,7 +146,7 @@ func (d *Device) Call(ctx context.Context, method string, params Object) (result
 	if method == "tick" {
 		return d.tick(ctx, params)
 	}
-	readonly := oneOf(method, "list context doctor observe-code explain identity") || method == "platform" && oneOf(str(params["operation"]), "query check")
+	readonly := oneOf(method, "list context doctor observe-code explain identity repository-plan") || method == "platform" && oneOf(str(params["operation"]), "query check")
 	op := &operation{device: d, ctx: ctx}
 	defer op.close()
 	topology := oneOf(method, "create register scan import bind-code") || strings.HasPrefix(method, "workspace-")

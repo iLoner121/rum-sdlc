@@ -33,6 +33,12 @@ func (o *operation) remember(repo Object, id, login string) {
 		branch = "main"
 	}
 	catalog[key] = Object{"id": repo["id"], "name": repo["name"], "full_name": repo["full_name"], "private": repo["private"], "branch": branch, "writable": truth(getObject(repo, "permissions")["push"]), "archived": truth(repo["archived"]), "pushed_at": repo["pushed_at"], "last_seen": fsutil.Now(), "verified_project": true, "project_id": id, "accounts": values}
+	row := object(catalog[key], "repository")
+	row["display_name"], row["name_source"] = repo["name"], "repository"
+	if local, ok := getObject(o.db, "projects")[id].(Object); ok {
+		row["project_name"], row["display_name"], row["name_source"] = local["name"], local["name"], "local-project"
+	}
+
 }
 func (o *operation) enable(p Object) Object {
 	id := str(p["project_id"])
@@ -44,6 +50,7 @@ func (o *operation) enable(p Object) Object {
 	effectiveAuthor(o.ctx, record, true)
 	cfg := loadConfig(str(record["path"]), true)
 	binding := object(object(cfg["repositories"], "repositories")["meta"], "meta")
+	require(!(truth(p["repository"]) && p["repository_name"] != nil), "Choose --repository for an existing repository or --repository-name for a new name")
 	repository := str(p["repository"])
 	if repository == "" && truth(binding["url"]) {
 		repository = strings.TrimSuffix(strings.TrimPrefix(str(binding["url"]), "https://github.com/"), ".git")
@@ -51,12 +58,8 @@ func (o *operation) enable(p Object) Object {
 	require(record["conflict"] == nil, "Resolve the existing conflict before rebinding")
 	var repo Object
 	if record["remote"] != nil {
-		remote := object(record["remote"], "remote")
-		require(repository == "" || repository == remote["full_name"], "Existing binding differs; this release does not automatically rebind remotes")
-		value, e := hub.Repository(o.ctx, str(remote["full_name"]))
-		must(e)
-		repo = checkedRepository(value, true)
-		require(equal(repo["id"], remote["id"]), "Repository identity changed")
+		require(p["repository_name"] == nil, "Project already has a repository; use sync to follow its verified rename")
+		repo = o.boundRepository(record, hub, str(p["repository"]))
 	} else {
 		created := false
 		if repository != "" {
@@ -65,7 +68,11 @@ func (o *operation) enable(p Object) Object {
 			repo = value
 		} else {
 			o.discover("")
-			name := RepositoryPrefix + id
+			planParams := Object{"project_id": id}
+			if p["repository_name"] != nil {
+				planParams["name"] = p["repository_name"]
+			}
+			name := str(o.repositoryPlan(planParams)["repository_name"])
 			matches := []Object{}
 			for _, v := range object(o.db["repositories"], "repositories") {
 				r := object(v, "repository")
@@ -73,18 +80,27 @@ func (o *operation) enable(p Object) Object {
 				for _, a := range array(r["accounts"], "accounts") {
 					accountMatch = accountMatch || equal(a, identity["login"])
 				}
-				if r["name"] == name && accountMatch {
-					matches = append(matches, r)
+				if r["verified_project"] == true && r["project_id"] == id && accountMatch {
+					if p["repository_name"] == nil || strings.EqualFold(str(r["name"]), name) {
+						matches = append(matches, r)
+					}
 				}
 			}
-			require(len(matches) <= 1, "Several matching repositories exist; select owner/name explicitly")
+			require(len(matches) <= 1, "Several repositories identify this Project; select owner/name explicitly")
 			if len(matches) > 0 {
 				value, e := hub.Repository(o.ctx, str(matches[0]["full_name"]))
 				must(e)
 				repo = value
 			} else {
+				for _, value := range object(o.db["repositories"], "repositories") {
+					candidate := object(value, "repository")
+					owner := strings.SplitN(str(candidate["full_name"]), "/", 2)[0]
+					require(!strings.EqualFold(owner, str(identity["login"])) || !strings.EqualFold(str(candidate["name"]), name), "Repository name is occupied: "+name+"; choose another --repository-name or explicitly select the existing repository")
+				}
 				value, e := hub.Create(o.ctx, name)
-				must(e)
+				if e != nil {
+					require(false, "Could not create repository "+name+"; verify permissions or choose another --repository-name if occupied")
+				}
 				created = true
 				repo, e = hub.Repository(o.ctx, str(value["full_name"]))
 				must(e)
@@ -166,8 +182,7 @@ func (o *operation) sync(id string) Object {
 	err := attempt(func() {
 		o.authenticated("")
 		hub, _ := o.hubFor("")
-		repo, e := hub.Repository(o.ctx, str(object(record["remote"], "remote")["full_name"]))
-		must(e)
+		repo := o.boundRepository(record, hub, "")
 		result = o.engine(record, hub).sync(record, repo)
 		result = o.finishSync(record, result)
 		result["project_id"] = id

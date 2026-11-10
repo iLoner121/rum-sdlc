@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,7 +141,7 @@ func (g *GitHub) api(ctx context.Context, endpoint, method string, body any) (an
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("GitHub API request failed: %s %s", method, strings.Split(endpoint, "?")[0])
+		return nil, &githubStatusError{Code: response.StatusCode, Message: fmt.Sprintf("GitHub API request failed: %s %s (HTTP %d)", method, strings.Split(endpoint, "?")[0], response.StatusCode)}
 	}
 	raw, e := io.ReadAll(io.LimitReader(response.Body, 32*1024*1024+1))
 	if e != nil {
@@ -197,10 +198,25 @@ func (g *GitHub) Create(ctx context.Context, name string) (result Object, err er
 	return object(v, "Repository"), nil
 }
 func (g *GitHub) Manifest(ctx context.Context, name, branch string) (result Object, err error) {
+	defer func() {
+		if err != nil {
+			var typed *ManifestReadError
+			if !errors.As(err, &typed) {
+				err = &ManifestReadError{Kind: "invalid", Cause: err}
+			}
+		}
+	}()
 	defer guard(&err)
 	must(fullName(name))
 	v, e := g.api(ctx, "repos/"+name+"/contents/"+Manifest+"?ref="+url.QueryEscape(branch), "GET", nil)
-	must(e)
+	if e != nil {
+		kind := "unavailable"
+		var status *githubStatusError
+		if errors.As(e, &status) && status.Code == 404 {
+			kind = "missing"
+		}
+		return nil, &ManifestReadError{Kind: kind, Cause: e}
+	}
 	file := object(v, "Manifest response")
 	require(file["encoding"] == "base64" && file["type"] == "file", "Missing or invalid RumSDLC project manifest")
 	raw, e := base64.StdEncoding.DecodeString(strings.ReplaceAll(str(file["content"]), "\n", ""))
@@ -237,4 +253,28 @@ func checkedRepository(repo Object, writable bool) Object {
 		require(getObject(repo, "permissions")["push"] == true, "This identity cannot push to the selected repository")
 	}
 	return repo
+}
+
+// githubStatusError keeps error classification without exposing response bodies.
+type githubStatusError struct {
+	Code    int
+	Message string
+}
+
+func (e *githubStatusError) Error() string { return e.Message }
+
+// ProjectDisplayName is a best-effort fallback for old three-field manifests.
+// The manifest is validated first; this display metadata never establishes identity.
+func (g *GitHub) ProjectDisplayName(ctx context.Context, name, branch string) (result string, err error) {
+	defer guard(&err)
+	must(fullName(name))
+	value, e := g.api(ctx, "repos/"+name+"/contents/"+configFile+"?ref="+url.QueryEscape(branch), "GET", nil)
+	must(e)
+	file := object(value, "Project configuration response")
+	require(file["type"] == "file" && file["encoding"] == "base64", "Missing project display name")
+	raw, e := base64.StdEncoding.DecodeString(strings.ReplaceAll(str(file["content"]), "\n", ""))
+	must(e)
+	value, e = jsonvalue.Decode(raw)
+	must(e)
+	return text(object(value, "Project configuration")["name"], "Project display name"), nil
 }

@@ -69,6 +69,8 @@ func (o *operation) dispatch(method string, p Object) (result any, err error) {
 		return o.platform(p), nil
 	case "project-identity":
 		return o.projectIdentity(p), nil
+	case "repository-plan":
+		return o.repositoryPlan(p), nil
 	case "enable":
 		return o.enable(p), nil
 	case "import":
@@ -243,6 +245,11 @@ func (o *operation) list() Object {
 	for _, id := range keys(object(o.db["repositories"], "repositories")) {
 		row := copyObject(object(object(o.db["repositories"], "repositories")[id], "repository"))
 		local := localRepos[idString(row["id"])]
+		if local == nil && row["verified_project"] == true {
+			if candidate, ok := getObject(o.db, "projects")[str(row["project_id"])].(Object); ok {
+				local = candidate
+			}
+		}
 		row["local_project_id"] = nil
 		row["local_path"] = nil
 		row["sync_enabled"] = false
@@ -375,7 +382,10 @@ func (o *operation) discover(login string) Object {
 		if !truth(branch) {
 			branch = "main"
 		}
-		result[idString(repo["id"])] = Object{"id": repo["id"], "name": repo["name"], "full_name": repo["full_name"], "private": repo["private"], "branch": branch, "writable": truth(getObject(repo, "permissions")["push"]), "archived": truth(repo["archived"]), "pushed_at": repo["pushed_at"], "last_seen": fsutil.Now(), "verified_project": false, "accounts": []any{identity["login"]}}
+		row := Object{"id": repo["id"], "name": repo["name"], "full_name": repo["full_name"], "private": repo["private"], "branch": branch, "writable": truth(getObject(repo, "permissions")["push"]), "archived": truth(repo["archived"]), "pushed_at": repo["pushed_at"], "last_seen": fsutil.Now(), "verified_project": false, "accounts": []any{identity["login"]}}
+		row["manifest_status"], row["project_name"], row["display_name"], row["name_source"] = "unavailable", nil, repo["name"], "repository"
+		o.inspectRepository(row, repo, hub)
+		result[idString(repo["id"])] = row
 	}
 	o.db["repositories"] = result
 	o.db["discovery"] = Object{"at": fsutil.Now(), "accessible_matching_repositories": len(result), "scope": "Repositories visible to the confirmed GitHub credential"}

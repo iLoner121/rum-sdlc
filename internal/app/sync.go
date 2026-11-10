@@ -66,10 +66,11 @@ type syncPathError struct{ path string }
 func (e *syncPathError) Error() string { return "Symlinks cannot be synchronized: " + e.path }
 func genesis(state Object) string      { return fingerprint(array(state["history"], "history")[0]) }
 func manifestFor(state Object) Object {
-	return Object{"format": "rumsdlc-project/1", "project_id": object(state["project"], "Project")["id"], "genesis": genesis(state)}
+	return Object{"format": "rumsdlc-project/1", "project_id": object(state["project"], "Project")["id"], "genesis": genesis(state), "name": object(state["project"], "Project")["name"]}
 }
 func validateManifest(value, state Object) {
-	require(equal(value, manifestFor(state)), "Project manifest identity/genesis does not match the Store")
+	validateManifestIdentity(value)
+	require(value["project_id"] == object(state["project"], "Project")["id"] && value["genesis"] == genesis(state), "Project manifest identity/genesis does not match the Store")
 }
 func (e *syncEngine) ensure(root string, state Object) {
 	if fsutil.Exists(filepath.Join(root, ".git")) {
@@ -82,6 +83,9 @@ func (e *syncEngine) ensure(root string, state Object) {
 		value, err := fsutil.ReadJSON(path)
 		must(err)
 		validateManifest(value, state)
+		if !equal(value, manifestFor(state)) {
+			must(fsutil.WriteJSON(path, manifestFor(state)))
+		}
 	} else {
 		must(fsutil.WriteJSON(path, manifestFor(state)))
 	}
@@ -159,7 +163,7 @@ func (e *syncEngine) remoteHeadNative(root, branch string) any {
 func (e *syncEngine) validateConfiguration(root string) Object {
 	cfg := loadConfig(root, true)
 	if e.record != nil && e.record["remote"] != nil {
-		checkMetaBinding(root, object(e.record["remote"], "remote"))
+		e.checkHistoricalMetaBinding(root, object(e.record["remote"], "remote"))
 	}
 	return cfg
 }
@@ -326,6 +330,16 @@ func (e *syncEngine) mergeCandidate(root, id string, state, record Object, local
 		record["data_status"] = "conflict"
 		return Object{"status": "conflict", "conflict": conflict}
 	}
+	if truth(record["repository_rename"]) {
+		current := loadConfig(work, true)
+		meta := object(object(current["repositories"], "repositories")["meta"], "meta")
+		binding := object(record["remote"], "remote")
+		if meta["url"] != "https://github.com/"+str(binding["full_name"])+".git" {
+			refreshImportedMetaBinding(work, binding)
+			e.validateTree(work, id, genesis(state))
+			e.commit(work, "RumSDLC: refresh verified repository name "+id, false)
+		}
+	}
 	e.updateLive(root, work, local, snapshot)
 	return nil
 }
@@ -389,6 +403,7 @@ func (e *syncEngine) importProject(repo Object, target string) Object {
 	state := e.validateTree(work, "", "")
 	remote := copyObject(repo)
 	remote["branch"] = branch
+	refreshImportedMetaBinding(work, remote)
 	checkMetaBinding(work, remote)
 	must(os.Rename(work, target))
 	return state

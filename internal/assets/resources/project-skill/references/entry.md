@@ -27,3 +27,5 @@ meta 同步与代码操作完全分开。meta 账号由 setup 管理；代码作
 
 
 0.8.5 区分逻辑 Project 与物理 Store：核心令牌保护状态/请求，Git 适配器的 code_revision 保护操作现场和适用代码事实。所有 integration-apply 都携带两个令牌，摘要纠错也固定现场但不要求原代码分支存在。current/check/list 不允许用另一份同 Project Store 冒充已有绑定；current 自动发现 Store 后仍检查设备归属和转换状态。显式更新旧工程脚本并重新预览。
+
+管理仓库命名可用 repository-plan --project ID [--name NAME] 预填，创建时 enable --repository-name NAME；旧 --repository owner/name 继续选择既有仓库。discover 读取身份文件并显示 manifest_status，不能由仓库名推导 Project ID。sync 仅在数字仓库 ID、Project ID 与 genesis 一致时恢复远端改名，不改代码关联。
