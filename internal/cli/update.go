@@ -80,7 +80,20 @@ func prepareUpdate(ctx context.Context, m *update.Manager, p map[string]any) (an
 		return nil, e
 	}
 	if previous.ID != "" && !previous.Terminal() {
-		return map[string]any{"status": previous.Phase, "operation_id": previous.ID, "next": "rum update-status"}, nil
+		if fsutil.Exists(filepath.Join(m.Home, "install-transaction.json")) {
+			previous.Phase = "recovery-required"
+			previous.Error = "Interrupted installation: use the verified original installer with --recover-only"
+			_ = m.SaveOperation(previous)
+			return nil, fmt.Errorf("%s", previous.Error)
+		}
+		if processAlive(previous.HelperPID) || processAlive(previous.Parent) {
+			return map[string]any{"status": previous.Phase, "operation_id": previous.ID, "next": "rum update-status"}, nil
+		}
+		previous.Phase = "failed"
+		previous.Error = "Update processes exited before completion; no activation transaction is pending"
+		if e = m.SaveOperation(previous); e != nil {
+			return nil, e
+		}
 	}
 	activePath := filepath.Join(m.Home, "active.json")
 	active, e := fsutil.ReadJSON(activePath)
@@ -193,6 +206,10 @@ func prepareUpdate(ctx context.Context, m *update.Manager, p map[string]any) (an
 		_ = m.SaveOperation(o)
 		return nil, e
 	}
+	o.HelperPID = cmd.Process.Pid
+	if e = m.SaveOperation(o); e != nil {
+		return nil, e
+	}
 	_ = cmd.Process.Release()
 	return map[string]any{"status": "queued", "operation_id": id, "target": o.Target, "next": "rum update-status --operation " + id}, nil
 }
@@ -247,6 +264,7 @@ func applyUpdate(ctx context.Context, m *update.Manager, id, nonce string) (err 
 	if release.Current() != o.Target {
 		return fmt.Errorf("Update helper build identity changed")
 	}
+	o.HelperPID = os.Getpid()
 	o.Phase = "waiting"
 	if e = m.SaveOperation(o); e != nil {
 		return e

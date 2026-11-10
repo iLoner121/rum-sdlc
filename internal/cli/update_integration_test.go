@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -130,5 +132,38 @@ func TestNativeHelperWaitsForLeaseAndVerifiesInstalledIdentity(t *testing.T) {
 	}
 	if out, e := exec.Command(helper, "--home", home, "update-apply", "--operation", id, "--nonce", o.Nonce).CombinedOutput(); e == nil {
 		t.Fatalf("consumed operation replayed: %s", out)
+	}
+}
+
+func TestAbandonedPreparationCanBeRetried(t *testing.T) {
+	root, e := filepath.EvalSymlinks(t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	home := filepath.Join(root, "d")
+	if e = os.MkdirAll(home, 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(home, "active.json"), []byte(`{"runtime":"old","bin":"old"}`), 0600); e != nil {
+		t.Fatal(e)
+	}
+	m := update.New(home)
+	m.Current = release.Identity{Version: "1.2.3", Channel: "stable"}
+	id := strings.Repeat("d", 32)
+	if e = m.SaveOperation(update.Operation{Format: "rum-update-operation/1", Home: home, ID: id, Phase: "queued"}); e != nil {
+		t.Fatal(e)
+	}
+	m.SetCurrent(id)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(update.Target{ID: 1, Tag: "v1.2.3", Assets: []update.Asset{{Name: "checksums.json"}, {Name: update.PackageName("1.2.3", runtime.GOOS, runtime.GOARCH)}}})
+	}))
+	defer server.Close()
+	m.Client = &update.Client{Base: server.URL, HTTP: server.Client()}
+	if _, e = prepareUpdate(context.Background(), m, map[string]any{}); e != nil {
+		t.Fatal(e)
+	}
+	o, e := m.Operation(id)
+	if e != nil || o.Phase != "failed" {
+		t.Fatal(o, e)
 	}
 }

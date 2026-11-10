@@ -22,6 +22,7 @@ type Operation struct {
 	Target         release.Identity `json:"target"`
 	Destination    string           `json:"destination"`
 	BinDir         string           `json:"bin_dir"`
+	HelperPID      int              `json:"helper_pid,omitempty"`
 	Parent         int              `json:"parent_pid"`
 	Launcher       int              `json:"launcher_pid,omitempty"`
 	Phase          string           `json:"phase"`
