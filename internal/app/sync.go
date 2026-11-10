@@ -9,6 +9,7 @@ import (
 	"rumsdlc/internal/store"
 	"sort"
 	"strings"
+	"time"
 )
 
 const rootFiles = "state.json .rumsdlc-project.json project-config.json AGENTS.md WORKFLOW.md README.md"
@@ -106,7 +107,7 @@ func (e *syncEngine) assertTracked(root string) {
 		require(allowed(path), "Unapproved file tracked in management repository: "+path)
 	}
 }
-func (e *syncEngine) commit(root, message string, checkConflicts bool) any {
+func (e *syncEngine) commit(root string, checkConflicts bool) any {
 	e.assertTracked(root)
 	all := map[string]bool{}
 	for _, path := range syncFiles(root) {
@@ -130,7 +131,9 @@ func (e *syncEngine) commit(root, message string, checkConflicts bool) any {
 	}
 	merging := e.git(root, false, "rev-parse", "--verify", "MERGE_HEAD").Code == 0
 	if merging || e.git(root, false, "diff", "--cached", "--quiet").Code != 0 {
-		e.git(root, true, "commit", "-q", "-m", message)
+		when := time.Now().Truncate(time.Second)
+		message := metaCommitMessage(when, e.identity, e.deviceName)
+		e.git(root, true, "commit", "-q", "--date="+when.Format(time.RFC3339), "-m", message)
 	}
 	return e.head(root)
 }
@@ -238,7 +241,7 @@ func (e *syncEngine) sync(record, repo Object) Object {
 		state := e.validateLocal(root, id)
 		e.ensure(root, state)
 		e.bindRemote(root, repo)
-		local := e.commit(root, "RumSDLC: checkpoint "+id, false)
+		local := e.commit(root, false)
 		snapshot := snapshotHash(root)
 		branch := str(binding["branch"])
 		remote := e.remoteHead(root, branch)
@@ -310,7 +313,7 @@ func (e *syncEngine) mergeCandidate(root, id string, state, record Object, local
 				}
 			}
 			if issue == "" {
-				if err := attempt(func() { e.validateTree(work, id, genesis(state)); e.commit(work, "RumSDLC: merge "+id, false) }); err != nil {
+				if err := attempt(func() { e.validateTree(work, id, genesis(state)); e.commit(work, false) }); err != nil {
 					issue = "Merged project is invalid: " + err.Error()
 				}
 			}
@@ -337,7 +340,7 @@ func (e *syncEngine) mergeCandidate(root, id string, state, record Object, local
 		if meta["url"] != "https://github.com/"+str(binding["full_name"])+".git" {
 			refreshImportedMetaBinding(work, binding)
 			e.validateTree(work, id, genesis(state))
-			e.commit(work, "RumSDLC: refresh verified repository name "+id, false)
+			e.commit(work, false)
 		}
 	}
 	e.updateLive(root, work, local, snapshot)
@@ -360,7 +363,7 @@ func (e *syncEngine) resolve(record, repo Object, id string, accept bool) Object
 		require(strings.TrimSpace(e.git(root, true, "status", "--porcelain", "--untracked-files=no").Stdout) == "", "Local files changed; candidate is stale")
 		state := readState(root)
 		e.validateTree(work, str(record["id"]), genesis(state))
-		e.commit(work, "RumSDLC: accepted conflict resolution "+str(record["id"]), true)
+		e.commit(work, true)
 		e.updateLive(root, work, conflict["local"], snapshotHash(root))
 		record["conflict"] = nil
 		record["status"] = "pending-push"

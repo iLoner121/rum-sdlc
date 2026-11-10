@@ -109,6 +109,7 @@ type syncEngine struct {
 	hub              Hub
 	identity, record Object
 	runner           process.Runner
+	deviceName       string
 }
 
 func (o *operation) engine(record Object, hub Hub) *syncEngine {
@@ -120,7 +121,8 @@ func (o *operation) engine(record Object, hub Hub) *syncEngine {
 		identity = effectiveAuthor(o.ctx, record, true)
 	}
 	must(os.MkdirAll(filepath.Join(o.device.Home, "empty-hooks"), 0700))
-	return &syncEngine{ctx: o.ctx, home: o.device.Home, hub: hub, identity: identity, record: record, runner: o.device.Runner}
+	hostname, _ := os.Hostname()
+	return &syncEngine{ctx: o.ctx, home: o.device.Home, hub: hub, identity: identity, record: record, runner: o.device.Runner, deviceName: metaCommitDevice(hostname, str(o.db["device_id"]))}
 }
 func shellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 func (e *syncEngine) git(root string, check bool, args ...string) process.Result {
@@ -135,6 +137,16 @@ func (e *syncEngine) gitNative(root string, check bool, args ...string) process.
 	}
 	command := []string{"git", "-c", "core.hooksPath=" + filepath.Join(e.home, "empty-hooks"), "-c", "core.fsmonitor=false", "-c", "core.autocrlf=false", "-c", "core.attributesFile=" + os.DevNull, "-c", "commit.gpgSign=false", "-c", "merge.autoStash=false", "-c", "credential.https://github.com.helper=", "-c", "credential.https://github.com.helper=" + helper, "-c", "credential.https://github.com.username=" + e.hub.Login(), "-c", "user.name=" + str(e.identity["commit_name"]), "-c", "user.email=" + str(e.identity["commit_email"]), "-C", root}
 	env := process.Environment(true)
+	// commit's explicit author date and committer date share the same captured
+	// second used in the standardized message. Do not modify the parent process.
+	if len(args) > 0 && args[0] == "commit" {
+		for _, arg := range args[1:] {
+			if strings.HasPrefix(arg, "--date=") {
+				stamp := strings.TrimPrefix(arg, "--date=")
+				env["GIT_AUTHOR_DATE"], env["GIT_COMMITTER_DATE"] = stamp, stamp
+			}
+		}
+	}
 	for _, key := range []string{"GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM"} {
 		value, ok := os.LookupEnv(key)
 		if ok {

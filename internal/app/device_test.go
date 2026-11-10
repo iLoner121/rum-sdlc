@@ -212,7 +212,9 @@ func TestNativeSyncConflictRetentionAndAcceptedRecovery(t *testing.T) {
 		t.Fatal("unaccepted resolution applied")
 	}
 	doc(t, candidate, "note.md", "accepted\n")
-	call(t, b, "resolve", Object{"project_id": "P-demo", "conflict_id": conflict["id"], "accept": true})
+	resolved := call(t, b, "resolve", Object{"project_id": "P-demo", "conflict_id": conflict["id"], "accept": true})
+	host, _ := os.Hostname()
+	assertStandardMetaCommit(t, str(imported["path"]), str(resolved["head"]), host)
 	call(t, a, "sync", Object{"project_id": "P-demo"})
 	raw, _ = os.ReadFile(filepath.Join(str(record["path"]), "documents", "note.md"))
 	if string(raw) != "accepted\n" {
@@ -232,6 +234,8 @@ func TestNativeBusinessMergeCommutesOnlyDisjointEntities(t *testing.T) {
 	if result["status"] != "synced" {
 		t.Fatal(result)
 	}
+	host, _ := os.Hostname()
+	assertStandardMetaCommit(t, filepath.Join(root, "project-b"), str(result["head"]), host)
 	call(t, a, "sync", Object{"project_id": "P-demo"})
 	state := readState(filepath.Join(root, "project-a"))
 	if state["project"].(Object)["name"] != "Renamed Project" || state["milestones"].(Object)[str(milestone)].(Object)["name"] != "Renamed Stage" {
