@@ -1,5 +1,25 @@
 # 版本记录
 
+## [1.0.0](https://github.com/iLoner121/rum-sdlc/compare/v0.9.0...v1.0.0) (2026-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **app:** 身份文件默认写入 name 字段，原严格匹配三字段的客户端需升级；新建仓库默认采用可读名称，已有仓库按身份继续恢复。
+
+### Features
+
+* **app:** Add repository names and identity discovery [T3] ([5d3c8ca](https://github.com/iLoner121/rum-sdlc/commit/5d3c8cabb1501624101135bbd328fa29b7a46b9c))
+* **core:** Add stable Topic short numbers [T2] ([ef52ccb](https://github.com/iLoner121/rum-sdlc/commit/ef52ccb2e388cb0ebb8949c17cfd20a2414bcc2d))
+* **sync:** Standardize metadata commit messages [T4] ([b8cf930](https://github.com/iLoner121/rum-sdlc/commit/b8cf93011ef81241f5fa4c25c2f7908cffed0430))
+* **update:** Add release PRs and native self-updates [T18] ([ce95d89](https://github.com/iLoner121/rum-sdlc/commit/ce95d89417ff66e7ac55a19092c672ff4671e8a1))
+
+
+### Bug Fixes
+
+* **update:** Recover abandoned update preparations [T18] ([3d642c4](https://github.com/iLoner121/rum-sdlc/commit/3d642c4eeb18ed34ddf40ffc737392fc9a3f7dac))
+* **update:** Serialize short update state writes [T18] ([1fa16fa](https://github.com/iLoner121/rum-sdlc/commit/1fa16fa940d363ece57377f78af48e15f5332062))
+
 ## 0.9.0 — 2026-11-06
 
 从本版本开始，RumSDLC 系统层基于 Go 开发和发布。此前的 0.8.x Python 发布保留为历史版本，
