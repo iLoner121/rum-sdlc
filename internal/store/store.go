@@ -361,6 +361,7 @@ type DocumentOptions struct {
 	Content          *string
 	ExpectedHash     string
 	Ensure           bool
+	LocateOnly       bool // Read-only location/existence without loading document bytes.
 	Correction       string
 }
 
@@ -431,12 +432,26 @@ func (s *Store) Document(o DocumentOptions) (result Object, err error) {
 		if e != nil {
 			return nil, e
 		}
+		if o.LocateOnly {
+			info, e := os.Stat(path)
+			exists := e == nil
+			if e != nil && !os.IsNotExist(e) {
+				return nil, e
+			}
+			if exists && !info.Mode().IsRegular() {
+				return nil, errors.New("Document is not a regular file")
+			}
+			return Object{"path": path, "exists": exists, "metadata": Object{"id": o.ID, "name": entity["name"], "status": entity["status"]}}, nil
+		}
 		raw, e := os.ReadFile(path)
 		exists := e == nil
 		if e != nil && !os.IsNotExist(e) {
 			return nil, e
 		}
 		return Object{"path": path, "exists": exists, "hash": jsonvalue.HashBytes(raw), "metadata": Object{"id": o.ID, "name": entity["name"], "status": entity["status"]}}, nil
+	}
+	if o.LocateOnly && (o.Content != nil || o.Ensure) {
+		return nil, errors.New("LocateOnly cannot write documents")
 	}
 	if o.Content == nil && !o.Ensure {
 		return info()

@@ -370,3 +370,11 @@ func lineReadiness(s Object, id string) Object {
 	}
 	return Object{"revision": s["revision"], "line_id": id, "status": line["status"], "type": line["type"], "member_count": len(ids), "integration_blockers": blockers, "close_blockers": closeBlockers, "can_integrate_structure": line["type"] == "development" && contains("active paused", str(line["status"])) && len(ids) > 0 && len(blockers) == 0, "limits": "Structural diagnostics only; actual technical exit, code and acceptance evidence require review"}
 }
+
+// ResolveRelations projects relation IDs from an already validated snapshot.
+// Unlike Query it does not decorate presentation labels, so adapters can batch
+// rows while deriving the project numbering map only once.
+func ResolveRelations(s Object, id string) (result Object, err error) {
+	defer catch(&err)
+	return clone(resolve(s, id)).(Object), nil
+}

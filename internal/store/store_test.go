@@ -175,3 +175,32 @@ func TestLiveWriterRecoveryAndLockRelease(t *testing.T) {
 		t.Fatalf("%v %v", status, e)
 	}
 }
+
+func TestLocateOnlyDoesNotLoadOrWriteDocument(t *testing.T) {
+	s := fresh(t)
+	info, e := s.Document(DocumentOptions{Table: "project", ID: "P-test", LocateOnly: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	path := info["path"].(string)
+	if e = os.MkdirAll(filepath.Dir(path), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(path, []byte("original"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	info, e = s.Document(DocumentOptions{Table: "project", ID: "P-test", LocateOnly: true})
+	if e != nil || info["exists"] != true {
+		t.Fatal(info, e)
+	}
+	if _, ok := info["hash"]; ok {
+		t.Fatal("location-only read loaded document content")
+	}
+	if _, e = s.Document(DocumentOptions{Table: "project", ID: "P-test", LocateOnly: true, Ensure: true}); e == nil {
+		t.Fatal("location-only write accepted")
+	}
+	raw, _ := os.ReadFile(path)
+	if string(raw) != "original" {
+		t.Fatal("document changed")
+	}
+}

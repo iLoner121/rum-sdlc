@@ -118,7 +118,7 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 		for name := range catalog.Specs {
 			names = append(names, name)
 		}
-		names = append(names, "daemon", "tool", "install")
+		names = append(names, "daemon", "tool", "install", "ui")
 		sort.Strings(names)
 		fmt.Fprintln(out, "RumSDLC native device application\nCommands: "+strings.Join(names, ", "))
 		return nil
@@ -131,6 +131,9 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 	root, e := fsutil.RealPath(home)
 	if e != nil {
 		return e
+	}
+	if method == "ui" {
+		return runUI(ctx, root, args, out, stderr)
 	}
 	if _, e = service.Endpoint(root); e != nil {
 		return e
