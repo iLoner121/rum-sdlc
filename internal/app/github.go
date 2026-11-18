@@ -39,6 +39,9 @@ type GitHub struct {
 	Account string
 	Client  *http.Client
 	Runner  process.Runner
+	// readToken pins one credential to a read-only discovery session. It is never
+	// serialized or installed in the process environment.
+	readToken string
 }
 
 func NewGitHub() *GitHub {
@@ -55,6 +58,9 @@ func NewGitHub() *GitHub {
 func (g *GitHub) ForLogin(login string) Hub { copy := *g; copy.Account = login; return &copy }
 func (g *GitHub) Login() string             { return g.Account }
 func (g *GitHub) Token(ctx context.Context) (string, error) {
+	if g.readToken != "" {
+		return g.readToken, nil
+	}
 	if g.Account == "" {
 		for _, key := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
 			if token := strings.TrimSpace(os.Getenv(key)); token != "" {
