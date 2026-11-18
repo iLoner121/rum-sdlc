@@ -1,5 +1,30 @@
 # 版本记录
 
+## [1.1.0](https://github.com/iLoner121/rum-sdlc/compare/v1.0.0...v1.1.0) (2026-11-18)
+
+
+### Features
+
+* **ui:** Add browser shell and project overview [T7] ([8841ad7](https://github.com/iLoner121/rum-sdlc/commit/8841ad793f9458c6ee30cee21c8f609004739fdc))
+* **ui:** Browse filtered and historical Topics [T9] ([1e7cf01](https://github.com/iLoner121/rum-sdlc/commit/1e7cf01b0c7ff4f53fd49a0bca605059c607009f))
+* **ui:** Browse iteration scope and frozen results [T10] ([6a2bdad](https://github.com/iLoner121/rum-sdlc/commit/6a2bdadfb358c617e5305198a02df4c6a399f3c0))
+* **ui:** Browse milestone goals and scope [T8] ([5a33353](https://github.com/iLoner121/rum-sdlc/commit/5a333534deb5c9197eb072e7a34779895013a2f9))
+* **ui:** Browse the ordered candidate pool [T11] ([5e54c2f](https://github.com/iLoner121/rum-sdlc/commit/5e54c2f12e1a44c029f05e888f02b64ddffe0f13))
+* **ui:** Discover cloud projects without persistence [T13] ([f8f0851](https://github.com/iLoner121/rum-sdlc/commit/f8f08518286be6bb7a7e7c54a7cab2928c93b5f6))
+* **ui:** Read Topic documents and activity evidence [T12] ([28f3dbf](https://github.com/iLoner121/rum-sdlc/commit/28f3dbf69ffc8f5e30b6c3bb412f818088257a9c))
+* **ui:** Serve read-only local project views [T6] ([415be12](https://github.com/iLoner121/rum-sdlc/commit/415be1246a29263a5a63e618695840be07dcf2c1))
+
+
+### Bug Fixes
+
+* **ui:** Anchor task status in the summary header [T12] ([8d8ffe7](https://github.com/iLoner121/rum-sdlc/commit/8d8ffe74fc2ed2c7ebaa52067635d3fdd73b7922))
+* **ui:** Keep mobile scrim out of desktop grid [T7] ([92e1570](https://github.com/iLoner121/rum-sdlc/commit/92e1570460b3ffffcb44061bbf95da7c4b546b2d))
+* **ui:** Preserve cached Topics when refresh fails [T9] ([d8ffd4a](https://github.com/iLoner121/rum-sdlc/commit/d8ffd4ac0027d58905b5ba5b076633809ed404e0))
+* **ui:** Reject rooted document paths on every platform [T6] ([a19b6dc](https://github.com/iLoner121/rum-sdlc/commit/a19b6dcc66383dcc143ab89a8b5c658208daffaa))
+* **ui:** Reorder navigation and unify vivid status colors [T7] ([1ba1b2e](https://github.com/iLoner121/rum-sdlc/commit/1ba1b2ea50806c1d9023182db488cf891c875b36))
+* **update:** Recheck due time from a consistent snapshot [T18] ([647d3b7](https://github.com/iLoner121/rum-sdlc/commit/647d3b70bc614367ece0219830ba49ba51fbaec8))
+* **update:** Reject stale scheduled checks after disabling [T18] ([da4e109](https://github.com/iLoner121/rum-sdlc/commit/da4e1097a081a3afb12c6060d76d2dca92625e73))
+
 ## [1.0.0](https://github.com/iLoner121/rum-sdlc/compare/v0.9.0...v1.0.0) (2026-11-11)
 
 
