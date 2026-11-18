@@ -14,3 +14,15 @@
 .project-management small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.project-management:has(.status-warning) small{color:var(--muted)}
 
 .row-sublabel{display:block;margin-top:4px;font-size:10px;color:var(--muted);font-weight:400}
+/* The mobile overlay must not become a third desktop grid item. */
+.nav-scrim{display:none}
+.select-control select{border:0;background:transparent;color:inherit;max-width:100%;outline-offset:5px}
+.cloud-page .list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:25px}
+.cloud-page .toolbar-actions{display:flex;align-items:center;gap:20px;font-size:12px}
+.cloud-page .project-identity{margin:0}
+.cloud-table{min-width:860px}
+.cloud-table td{min-height:91px;padding-top:20px;padding-bottom:20px}
+.cloud-table td small{display:block;margin-top:5px;font-size:11px}
+.cloud-page .list-footer{font-size:11px;color:var(--muted);margin-top:24px}
+.cloud-page .project-identity>div{margin-top:6px}
+@media(max-width:760px){.app-shell.nav-open .nav-scrim{display:block}.cloud-page .toolbar-actions{width:100%;justify-content:space-between}.pagination-controls{flex-wrap:wrap}}
