@@ -144,6 +144,14 @@ func (m *Manager) Configure(enabled bool) (Config, error) {
 	return c, m.save(s)
 }
 func (m *Manager) Check(ctx context.Context) (State, error) {
+	return m.check(ctx, nil)
+}
+
+func (m *Manager) checkScheduled(ctx context.Context, generation int64) (State, error) {
+	return m.check(ctx, &generation)
+}
+
+func (m *Manager) check(ctx context.Context, scheduledGeneration *int64) (State, error) {
 	l, e := m.lock("check.lock")
 	if e != nil {
 		s, _ := m.State()
@@ -157,6 +165,11 @@ func (m *Manager) Check(ctx context.Context) (State, error) {
 	s, e := m.State()
 	if e != nil {
 		return s, e
+	}
+	// Admit scheduled work against its configuration snapshot. Admitted requests
+	// still use cancellation and the generation check before saving their result.
+	if scheduledGeneration != nil && (!c.Enabled || c.Generation != *scheduledGeneration) {
+		return s, fail("configuration-changed", "Scheduled update configuration is no longer active")
 	}
 	now := m.Now()
 	if now.Before(s.RetryAfter) {
@@ -287,7 +300,10 @@ func (m *Manager) Schedule(ctx context.Context) {
 				cancel = stop
 				done = make(chan struct{})
 				ch := done
-				go func() { defer close(ch); _, _ = m.Check(work) }()
+				go func(generation int64) {
+					defer close(ch)
+					_, _ = m.checkScheduled(work, generation)
+				}(c.Generation)
 			}
 		}
 		select {
