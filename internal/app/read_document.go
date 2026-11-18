@@ -101,7 +101,7 @@ func (r *Reader) ReadDocumentResource(pid, resource, href, revision string) (Vie
 	if e != nil {
 		return View{}, e
 	}
-	if resource == "" || filepath.IsAbs(resource) || strings.Contains(resource, "\\") || !strings.EqualFold(filepath.Ext(resource), ".md") {
+	if resource == "" || strings.HasPrefix(resource, "/") || strings.ContainsAny(resource, "\\:") || !strings.EqualFold(filepath.Ext(resource), ".md") {
 		return View{}, NewReadError("invalid", "Invalid document resource")
 	}
 	base, e := store.Safe(s.Root, "documents/"+resource)
@@ -119,8 +119,10 @@ func (r *Reader) readDocumentLink(s *store.Store, state Object, pid, basePath, h
 	if e != nil || u.IsAbs() || u.Host != "" || u.Opaque != "" || u.RawQuery != "" || strings.Contains(href, "\\") {
 		return View{}, NewReadError("invalid", "Only relative Markdown links are supported")
 	}
+	// URL paths use slash semantics on every OS. filepath.IsAbs alone
+	// accepts root-relative paths on Windows; colons also allow drive/ADS names.
 	relative := u.Path
-	if relative == "" || strings.Contains(relative, "\\") || filepath.IsAbs(relative) || !strings.EqualFold(filepath.Ext(relative), ".md") {
+	if relative == "" || strings.HasPrefix(relative, "/") || strings.ContainsAny(relative, "\\:") || !strings.EqualFold(filepath.Ext(relative), ".md") {
 		return View{}, NewReadError("invalid", "Only relative Markdown links are supported")
 	}
 	basedir, e := filepath.Rel(s.Root, filepath.Dir(basePath))

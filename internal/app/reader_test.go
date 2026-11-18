@@ -164,9 +164,14 @@ func TestReaderDocumentsBoundedAndSafeLinks(t *testing.T) {
 	if _, e = r.ReadDocumentResource("P-reader", resource, "TASK_CONTEXT.md", ""); e != nil {
 		t.Fatal(e)
 	}
-	for _, href := range []string{"../../../../secret.md", "file:///etc/passwd", "javascript:alert(1)", "%2fetc/a.md", "DESIGN.html", "//evil/a.md", "bad\\file.md", "bad%5cfile.md"} {
+	for _, href := range []string{"../../../../secret.md", "file:///etc/passwd", "javascript:alert(1)", "%2fetc/a.md", "/etc/a.md", "%2F%2Fevil/a.md", "C:/a.md", "C:a.md", "C%3a/a.md", "file%3astream.md", "DESIGN.html", "//evil/a.md", "bad\\file.md", "bad%5cfile.md"} {
 		if _, e = r.ReadDocumentLink("P-reader", "topics", "T1", "context", href, ""); e == nil {
 			t.Fatal("accepted unsafe link", href)
+		}
+	}
+	for _, resource := range []string{"/etc/a.md", "//server/a.md", "C:/a.md", "C:a.md", "file:stream.md", `bad\file.md`} {
+		if _, e = r.ReadDocumentResource("P-reader", resource, "DESIGN.md", ""); e == nil {
+			t.Fatal("accepted unsafe resource", resource)
 		}
 	}
 	os.Symlink(filepath.Join(filepath.Dir(s.Root), "secret.md"), filepath.Join(filepath.Dir(path), "link.md"))
