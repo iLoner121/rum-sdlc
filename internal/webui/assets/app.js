@@ -36,7 +36,7 @@ function paintNavigation(route){
   clear(workspaceNav,navItem('local','本机项目','grid',{page:'local'},route.page==='local'),navItem('cloud','云端项目','cloud',{page:'cloud'},route.page==='cloud'));
   const project=projects.get(route.projectID);const selected=route.projectID;
   clear(projectLabel,selected?el('strong',{},project?.name||project?.title||selected):el('strong',{},'尚未选择项目'),el('small',{},selected?'本机 · 管理工程浏览':'从本机项目开始浏览'));
-  clear(projectNav,...(selected?[['overview','概览','home'],['milestones','里程碑','flag'],['topics','需求','list'],['iterations','迭代','cycle'],['pool','需求池','box']].map(([page,label,name])=>navItem(page,label,name,{page,projectID:selected},route.page===page || route.page==='detail'&&page==='topics')):[]));
+  clear(projectNav,...(selected?[['overview','概览','home'],['milestones','里程碑','flag'],['iterations','迭代','cycle'],['pool','需求池','box'],['topics','需求','list']].map(([page,label,name])=>navItem(page,label,name,{page,projectID:selected},route.page===page || route.page==='detail'&&page==='topics')):[]));
   topTitle.textContent=selected?(project?.name||project?.title||selected):'工作空间';document.title=`${labels[route.page]||'RumSDLC'} · ${project?.name||'RumSDLC'}`;
 }
 // Restore after asynchronous document layout, with a short lifetime and user intent taking priority.

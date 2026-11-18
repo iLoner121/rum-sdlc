@@ -1,0 +1,52 @@
+/* Shared semantic palette. Badges and overview segments use the same status.
+   Keep product/navigation accent colors separate from workflow state colors. */
+:root {
+  --status-planned: #475569; --status-planned-bg: #eef2f6;
+  --status-active: #1557d2; --status-active-bg: #eaf1ff;
+  --status-review: #7330ce; --status-review-bg: #f3eaff;
+  --status-ready: #006b73; --status-ready-bg: #e2f6f6;
+  --status-success: #08783f; --status-success-bg: #e6f6ec;
+  --status-paused: #a55300; --status-paused-bg: #fff2dc;
+  --status-danger: #c42335; --status-danger-bg: #ffebee;
+  --status-unknown: #596273; --status-unknown-bg: #eef0f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --status-planned: #bdc9dc; --status-planned-bg: #2c3545;
+    --status-active: #83b3ff; --status-active-bg: #1c3152;
+    --status-review: #c5a0ff; --status-review-bg: #38244f;
+    --status-ready: #66d6de; --status-ready-bg: #163c40;
+    --status-success: #68dda0; --status-success-bg: #163e2b;
+    --status-paused: #ffc16b; --status-paused-bg: #48331c;
+    --status-danger: #ff8b9a; --status-danger-bg: #4c232c;
+    --status-unknown: #bcc2ce; --status-unknown-bg: #303540;
+  }
+}
+.status, .status-segment {
+  --state-color: var(--status-unknown);
+  --state-bg: var(--status-unknown-bg);
+}
+[data-status="planned"], [data-status="draft"], [data-status="backlog"] {
+  --state-color: var(--status-planned); --state-bg: var(--status-planned-bg);
+}
+[data-status="active"] {
+  --state-color: var(--status-active); --state-bg: var(--status-active-bg);
+}
+[data-status="review"] {
+  --state-color: var(--status-review); --state-bg: var(--status-review-bg);
+}
+[data-status="ready"] {
+  --state-color: var(--status-ready); --state-bg: var(--status-ready-bg);
+}
+[data-status="closed"], [data-status="done"], [data-status="available"],
+[data-status="completed"], [data-status="delivered"], [data-status="research-complete"] {
+  --state-color: var(--status-success); --state-bg: var(--status-success-bg);
+}
+[data-status="paused"], [data-status="deferred"], [data-status="carry-forward"], [data-status="stale"] {
+  --state-color: var(--status-paused); --state-bg: var(--status-paused-bg);
+}
+[data-status="blocked"], [data-status="unavailable"] {
+  --state-color: var(--status-danger); --state-bg: var(--status-danger-bg);
+}
+.status { color: var(--state-color); background: var(--state-bg); }
+.status-segment { background: var(--state-color); }

@@ -1,9 +1,8 @@
 import {el, icon, clear, formatTime} from './dom.js';
 import {routeURL} from './router.js';
-export const statusLabels = {planned:'待开始',active:'进行中',review:'待评审',ready:'待交付',closed:'已关闭',done:'已完成',draft:'草案',blocked:'受阻',cancelled:'已取消',deferred:'已转出',available:'可用',unavailable:'路径失效',unknown:'待核实',completed:'完成','carry-forward':'结转',backlog:'退回需求池',superseded:'被替代'};
+export const statusLabels = {planned:'待开始',paused:'已暂停',stale:'待刷新',delivered:'已交付','research-complete':'研究完成',active:'进行中',review:'待评审',ready:'待交付',closed:'已关闭',done:'已完成',draft:'草案',blocked:'受阻',cancelled:'已取消',deferred:'已转出',available:'可用',unavailable:'路径失效',unknown:'待核实',completed:'完成','carry-forward':'结转',backlog:'退回需求池',superseded:'被替代'};
 export function status(value, label) {
-  const color = ['closed','done','available','completed'].includes(value) ? 'success' : value === 'active' ? 'active' : ['review','blocked','unavailable','stale'].includes(value) ? 'warning' : 'muted';
-  return el('span',{class:`status status-${color}`},el('span',{class:'status-dot'}),label || statusLabels[value] || value || '未知');
+  return el('span',{class:'status','data-status':value||'unknown'},el('span',{class:'status-dot','aria-hidden':'true'}),label || statusLabels[value] || value || '未知');
 }
 export function button(label, action, options = {}) {
   return el('button',{type:'button',class:`button ${options.primary ? 'button-primary' : ''} ${options.class || ''}`,disabled:options.disabled,onClick:action,title:options.title},options.icon ? icon(options.icon) : null,label);
