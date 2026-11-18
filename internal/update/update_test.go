@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -254,6 +255,128 @@ func TestHourlyScheduleAndDisable(t *testing.T) {
 	cancel()
 	<-done
 }
+
+type updateRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f updateRoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func TestScheduleRejectsDisabledGeneration(t *testing.T) {
+	m := New(realTemp(t))
+	if _, err := m.Configure(true); err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	m.Client = &Client{Base: "https://api.github.com", HTTP: &http.Client{Transport: updateRoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		<-r.Context().Done()
+		return nil, r.Context().Err()
+	})}}
+	entered := make(chan struct{})
+	resume := make(chan struct{})
+	var paused atomic.Bool
+	now := time.Now()
+	m.Now = func() time.Time {
+		if paused.CompareAndSwap(false, true) {
+			close(entered)
+			<-resume
+		}
+		return now
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); m.Schedule(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-resume:
+		default:
+			close(resume)
+		}
+		<-done
+	})
+	select {
+	case <-entered:
+	case <-time.After(4 * time.Second):
+		t.Fatal("scheduler did not read the enabled configuration")
+	}
+	if _, err := m.Configure(false); err != nil {
+		t.Fatal(err)
+	}
+	// Join the scheduler and its worker without a timing-based assertion. The
+	// transport records even canceled requests, so cancellation cannot hide an
+	// attempt started from the scheduler's stale configuration snapshot.
+	cancel()
+	close(resume)
+	select {
+	case <-done:
+	case <-time.After(4 * time.Second):
+		t.Fatal("scheduler did not stop")
+	}
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("disabled scheduler attempted %d requests", got)
+	}
+	s, err := m.State()
+	if err != nil || !s.NextDue.IsZero() || !s.AttemptedAt.IsZero() {
+		t.Fatal("disabled scheduler changed state", s, err)
+	}
+}
+
+func TestScheduledCheckRejectsGenerationAfterReenable(t *testing.T) {
+	m := New(realTemp(t))
+	enabled, err := m.Configure(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.Configure(false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.Configure(true); err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	m.Client = &Client{Base: "https://api.github.com", HTTP: &http.Client{Transport: updateRoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return nil, errors.New("unexpected stale scheduled request")
+	})}}
+	_, err = m.checkScheduled(context.Background(), enabled.Generation)
+	var failure *Failure
+	if !errors.As(err, &failure) || failure.Code != "configuration-changed" {
+		t.Fatal("stale scheduled generation was accepted", err)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Fatalf("stale scheduler attempted %d requests", got)
+	}
+	s, err := m.State()
+	if err != nil || !s.NextDue.IsZero() || !s.AttemptedAt.IsZero() {
+		t.Fatal("stale scheduled check changed state", s, err)
+	}
+}
+
+func TestManualCheckWhileSchedulerDisabled(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		json.NewEncoder(w).Encode(target())
+	}))
+	defer server.Close()
+	m := New(realTemp(t))
+	m.Client = &Client{Base: server.URL, HTTP: server.Client()}
+	m.Current = release.Identity{Version: "1.2.2", Channel: "stable"}
+	if _, err := m.Configure(false); err != nil {
+		t.Fatal(err)
+	}
+	s, err := m.Check(context.Background())
+	if err != nil || s.Status != "update-available" || calls.Load() != 1 {
+		t.Fatal("manual check failed while scheduler disabled", s, err, calls.Load())
+	}
+	c, err := m.Config()
+	if err != nil || c.Enabled {
+		t.Fatal("manual check changed scheduler configuration", c, err)
+	}
+}
+
 func TestReleaseWithdrawalAndCrossHostToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		x := target()
