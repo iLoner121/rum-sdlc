@@ -52,7 +52,7 @@ export async function render(ctx){
     if(!data.tasks?.length)root.append(empty('尚无活动','该需求尚未登记活动。'));
     for(const task of data.tasks||[]){
       const body=el('div',{class:'task-body'});let loaded=false;
-      const entry=el('details',{class:'task-entry',ontoggle:e=>{if(e.currentTarget.open&&!loaded){loaded=true;body.append(documentView(ctx,{table:'tasks',id:task.id,field:'description',title:task.name}));}}},el('summary',{},el('span',{class:'task-number'},task.id?.split('/').pop()),el('span',{class:'task-title'},task.name),el('span',{class:'muted'},kinds[task.kind]||task.kind||'未分类'),status(task.status)),task.result?el('p',{class:'task-result'},readable(task.result)):null,body);
+      const entry=el('details',{class:'task-entry',ontoggle:e=>{if(e.currentTarget.open&&!loaded){loaded=true;body.append(documentView(ctx,{table:'tasks',id:task.id,field:'description',title:task.name}));}}},el('summary',{},el('span',{class:'task-number'},task.id?.split('/').pop()),el('span',{class:'task-title'},task.name),el('span',{class:'muted'},kinds[task.kind]||task.kind||'未分类'),el('span',{class:'task-state'},status(task.status)),el('span',{class:'task-chevron','aria-hidden':'true'},'›')),task.result?el('p',{class:'task-result'},readable(task.result)):null,body);
       root.append(entry);
     }
   }else{
