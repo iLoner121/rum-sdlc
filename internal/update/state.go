@@ -69,6 +69,17 @@ func read(path string, v any) error {
 	return json.Unmarshal(b, v)
 }
 func (m *Manager) Config() (Config, error) {
+	l, e := m.lock("state.lock")
+	if e != nil {
+		return Config{}, e
+	}
+	defer l.Close()
+	return m.readConfig()
+}
+
+// readConfig and readState require state.lock, including for read-only callers:
+// an open reader can prevent file replacement on Windows.
+func (m *Manager) readConfig() (Config, error) {
 	c := Config{Format: "rum-update-config/1", Interval: 3600, Channel: "stable"}
 	p, e := m.path("config.json")
 	if e != nil {
@@ -87,6 +98,15 @@ func (m *Manager) Config() (Config, error) {
 	return c, nil
 }
 func (m *Manager) State() (State, error) {
+	l, e := m.lock("state.lock")
+	if e != nil {
+		return State{}, e
+	}
+	defer l.Close()
+	return m.readState()
+}
+
+func (m *Manager) readState() (State, error) {
 	s := State{Format: "rum-update-state/1", Current: m.Current, Status: "not-checked"}
 	p, e := m.path("state.json")
 	if e != nil {
@@ -117,13 +137,30 @@ func (m *Manager) save(s State) error {
 	}
 	return fsutil.WriteJSON(p, s)
 }
+
+func (m *Manager) snapshot() (Config, State, error) {
+	l, e := m.lock("state.lock")
+	if e != nil {
+		return Config{}, State{}, e
+	}
+	defer l.Close()
+	// Read both files under the writers' lock, including during replacement on
+	// platforms where rename is not atomic.
+	c, e := m.readConfig()
+	if e != nil {
+		return c, State{}, e
+	}
+	s, e := m.readState()
+	return c, s, e
+}
+
 func (m *Manager) Configure(enabled bool) (Config, error) {
 	l, e := m.lock("state.lock")
 	if e != nil {
 		return Config{}, e
 	}
 	defer l.Close()
-	c, e := m.Config()
+	c, e := m.readConfig()
 	if e != nil {
 		return c, e
 	}
@@ -136,7 +173,7 @@ func (m *Manager) Configure(enabled bool) (Config, error) {
 	if e = fsutil.WriteJSON(p, c); e != nil {
 		return c, e
 	}
-	s, e := m.State()
+	s, e := m.readState()
 	if e != nil {
 		return c, e
 	}
@@ -158,11 +195,7 @@ func (m *Manager) check(ctx context.Context, scheduledGeneration *int64) (State,
 		return s, fail("check-in-progress", "Another update check is running")
 	}
 	defer l.Close()
-	c, e := m.Config()
-	if e != nil {
-		return State{}, e
-	}
-	s, e := m.State()
+	c, s, e := m.snapshot()
 	if e != nil {
 		return s, e
 	}
@@ -172,6 +205,9 @@ func (m *Manager) check(ctx context.Context, scheduledGeneration *int64) (State,
 		return s, fail("configuration-changed", "Scheduled update configuration is no longer active")
 	}
 	now := m.Now()
+	if scheduledGeneration != nil && now.Before(s.NextDue) {
+		return s, nil
+	}
 	if now.Before(s.RetryAfter) {
 		return s, fail("retry-later", "Previous request failed; retry after "+s.RetryAfter.Format(time.RFC3339))
 	}
@@ -181,14 +217,14 @@ func (m *Manager) check(ctx context.Context, scheduledGeneration *int64) (State,
 		return s, e
 	}
 	defer lock.Close()
-	currentConfig, e := m.Config()
+	currentConfig, e := m.readConfig()
 	if e != nil {
 		return s, e
 	}
 	if currentConfig.Generation != c.Generation {
 		return s, fail("configuration-changed", "Update configuration changed during request")
 	}
-	latest, e := m.State()
+	latest, e := m.readState()
 	if e != nil {
 		return s, e
 	}
@@ -245,7 +281,7 @@ func (m *Manager) Ack(version string) (State, error) {
 		return State{}, e
 	}
 	defer l.Close()
-	s, e := m.State()
+	s, e := m.readState()
 	if e != nil {
 		return s, e
 	}
@@ -261,7 +297,7 @@ func (m *Manager) Notice() string {
 		return ""
 	}
 	defer l.Close()
-	s, e := m.State()
+	s, e := m.readState()
 	if e != nil || s.Target == nil || s.LastError != "" || s.Status != "update-available" {
 		return ""
 	}
@@ -289,22 +325,19 @@ func (m *Manager) Schedule(ctx context.Context) {
 	timer := time.NewTicker(time.Second)
 	defer timer.Stop()
 	for {
-		c, e := m.Config()
+		c, s, e := m.snapshot()
 		if (e != nil || !c.Enabled) && cancel != nil {
 			cancel()
 		}
-		if e == nil && c.Enabled && done == nil {
-			s, err := m.State()
-			if err == nil && !m.Now().Before(s.NextDue) {
-				work, stop := context.WithCancel(ctx)
-				cancel = stop
-				done = make(chan struct{})
-				ch := done
-				go func(generation int64) {
-					defer close(ch)
-					_, _ = m.checkScheduled(work, generation)
-				}(c.Generation)
-			}
+		if e == nil && c.Enabled && done == nil && !m.Now().Before(s.NextDue) {
+			work, stop := context.WithCancel(ctx)
+			cancel = stop
+			done = make(chan struct{})
+			ch := done
+			go func(generation int64) {
+				defer close(ch)
+				_, _ = m.checkScheduled(work, generation)
+			}(c.Generation)
 		}
 		select {
 		case <-ctx.Done():

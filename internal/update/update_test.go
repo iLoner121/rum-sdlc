@@ -9,12 +9,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"rumsdlc/internal/release"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -354,6 +356,74 @@ func TestScheduledCheckRejectsGenerationAfterReenable(t *testing.T) {
 	}
 }
 
+func TestScheduleRechecksDueAfterManualCheck(t *testing.T) {
+	m := New(realTemp(t))
+	m.Current = release.Identity{Version: "1.2.2", Channel: "stable"}
+	if _, err := m.Configure(true); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(target())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	m.Client = &Client{Base: "https://api.github.com", HTTP: &http.Client{Transport: updateRoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		if calls.Add(1) != 1 {
+			<-r.Context().Done()
+			return nil, r.Context().Err()
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(raw))}, nil
+	})}}
+	entered := make(chan struct{})
+	resume := make(chan struct{})
+	var paused atomic.Bool
+	now := time.Now()
+	m.Now = func() time.Time {
+		if paused.CompareAndSwap(false, true) {
+			close(entered)
+			<-resume
+		}
+		return now
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); m.Schedule(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-resume:
+		default:
+			close(resume)
+		}
+		<-done
+	})
+	select {
+	case <-entered:
+	case <-time.After(4 * time.Second):
+		t.Fatal("scheduler did not read the due state")
+	}
+	s, err := m.Check(context.Background())
+	if err != nil || !s.NextDue.Equal(now.Add(time.Hour)) {
+		t.Fatal("manual check did not advance the due time", s, err)
+	}
+	// Let the pending scheduler use its old due snapshot, then join its worker.
+	// The transport records any duplicate attempt even with a canceled context.
+	cancel()
+	close(resume)
+	select {
+	case <-done:
+	case <-time.After(4 * time.Second):
+		t.Fatal("scheduler did not stop")
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("scheduler repeated a completed manual check: %d requests", got)
+	}
+	saved, err := m.State()
+	if err != nil || !saved.NextDue.Equal(s.NextDue) || saved.LastError != "" {
+		t.Fatal("stale schedule changed the completed check", saved, err)
+	}
+}
+
 func TestManualCheckWhileSchedulerDisabled(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -371,9 +441,92 @@ func TestManualCheckWhileSchedulerDisabled(t *testing.T) {
 	if err != nil || s.Status != "update-available" || calls.Load() != 1 {
 		t.Fatal("manual check failed while scheduler disabled", s, err, calls.Load())
 	}
+	s, err = m.Check(context.Background())
+	if err != nil || s.Status != "update-available" || calls.Load() != 2 {
+		t.Fatal("manual check was blocked by the future due time", s, err, calls.Load())
+	}
 	c, err := m.Config()
 	if err != nil || c.Enabled {
 		t.Fatal("manual check changed scheduler configuration", c, err)
+	}
+}
+
+func TestConcurrentStatusReadsAndChecks(t *testing.T) {
+	m := New(realTemp(t))
+	m.Current = release.Identity{Version: "1.2.2", Channel: "stable"}
+	if _, err := m.Configure(false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(target())
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Client = &Client{Base: "https://api.github.com", HTTP: &http.Client{Transport: updateRoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(raw))}, nil
+	})}}
+	other := New(m.Home)
+	other.Current = m.Current
+	stop := make(chan struct{})
+	ready := make(chan struct{}, 2)
+	errors := make(chan error, 2)
+	var readers sync.WaitGroup
+	for _, reader := range []*Manager{m, other} {
+		readers.Add(1)
+		go func(reader *Manager) {
+			defer readers.Done()
+			first := true
+			for {
+				if _, err := reader.Config(); err != nil {
+					errors <- err
+					return
+				}
+				if _, err := reader.State(); err != nil {
+					errors <- err
+					return
+				}
+				if first {
+					ready <- struct{}{}
+					first = false
+				}
+				select {
+				case <-stop:
+					return
+				default:
+				}
+			}
+		}(reader)
+	}
+	t.Cleanup(func() {
+		select {
+		case <-stop:
+		default:
+			close(stop)
+		}
+		readers.Wait()
+	})
+	for range 2 {
+		select {
+		case <-ready:
+		case err := <-errors:
+			t.Fatal("status reader failed", err)
+		case <-time.After(4 * time.Second):
+			t.Fatal("status readers did not start")
+		}
+	}
+	for i := range 20 {
+		if _, err := m.Configure(i%2 == 0); err != nil {
+			t.Fatal("configuration replacement failed during status reads", err)
+		}
+		if _, err := m.Check(context.Background()); err != nil {
+			t.Fatal("check state replacement failed during status reads", err)
+		}
+	}
+	close(stop)
+	readers.Wait()
+	select {
+	case err := <-errors:
+		t.Fatal("status reader failed", err)
+	default:
 	}
 }
 
