@@ -29,7 +29,7 @@ export function pagination(ctx, data, revision) {
 }
 export async function renderList(ctx, pool = false) {
   const query=new URLSearchParams(ctx.route.query); if(pool)query.set('scope','pool');
-  let view, failure;
+  let view, failure, usingCache=false;
   try {
     if(query.get('scope')==='iteration'&&!query.get('workset_id')) {
       const choices=await ctx.api.project(ctx.route.projectID,'topics',{scope:'all',limit:1});
@@ -41,10 +41,10 @@ export async function renderList(ctx, pool = false) {
     ctx.state.lastView=view;
   } catch(error) {
     if(error.name==='AbortError')throw error;
-    if(error.code==='stale'){query.delete('revision');query.set('offset','0');try{view=await ctx.api.project(ctx.route.projectID,'topics',query);ctx.state.lastView=view;failure='数据版本已变化，已回到第一页并保留筛选。';}catch(retryError){if(retryError.name==='AbortError'||!ctx.state.lastView)throw retryError;view=ctx.state.lastView;failure=`重新读取失败，以下为上次成功数据：${retryError.message}`;}}
-    else if(ctx.state.lastView){view=ctx.state.lastView;failure=`读取失败，以下为上次成功数据：${error.message}`;} else throw error;
+    if(error.code==='stale'){query.delete('revision');query.set('offset','0');try{view=await ctx.api.project(ctx.route.projectID,'topics',query);ctx.state.lastView=view;failure='数据版本已变化，已回到第一页并保留筛选。';}catch(retryError){if(retryError.name==='AbortError'||!ctx.state.lastView)throw retryError;view=ctx.state.lastView;usingCache=true;failure=`重新读取失败，以下为上次成功数据：${retryError.message}`;}}
+    else if(ctx.state.lastView){view=ctx.state.lastView;usingCache=true;failure=`读取失败，以下为上次成功数据：${error.message}`;} else throw error;
   }
-  if(query.toString()!==ctx.route.query.toString()){ctx.navigate({...ctx.route,query},{replace:true});return {element:el('p',{role:'status'},'正在更新浏览范围…')};}
+  if(!usingCache&&query.toString()!==ctx.route.query.toString()){ctx.navigate({...ctx.route,query},{replace:true});return {element:el('p',{role:'status'},'正在更新浏览范围…')};}
   const data=view.data, rows=data.rows||[], historical=view.basis==='historical-results', scope=pool?'pool':query.get('scope')||'all';
   const root=el('section',{class:'page topics-page'});
   root.append(el('div',{class:'page-heading'},el('div',{},el('h1',{},pool?'需求池':'需求'),el('p',{class:'page-subtitle'},pool?'保留长期候选，按实际队列顺序浏览':historical?'该轮结束时的冻结结果，与当前需求信息分别呈现':'所有需求，保留完整生命周期'))));
