@@ -1,5 +1,12 @@
 # 版本记录
 
+## [1.1.1](https://github.com/iLoner121/rum-sdlc/compare/v1.1.0...v1.1.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **workspace:** Decouple project compatibility from releases ([061e862](https://github.com/iLoner121/rum-sdlc/commit/061e8625b0b8ff02765be80568fb92ba45ee5020))
+
 ## [1.1.0](https://github.com/iLoner121/rum-sdlc/compare/v1.0.0...v1.1.0) (2026-11-18)
 
 
