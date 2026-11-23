@@ -58,9 +58,8 @@ func mergeState(left, right Object) Object {
 	}
 	var state Object
 	for _, v := range a[:common] {
-		next, _, e := core.Dispatch(state, object(object(v, "event")["request"], "request"))
-		must(e)
-		state = next
+		event := object(v, "event")
+		state = replayMergeEvent(state, event)
 	}
 	sort.SliceStable(entries, func(i, j int) bool {
 		a, b := entries[i], entries[j]
@@ -73,15 +72,25 @@ func mergeState(left, right Object) Object {
 		return a.index < b.index
 	})
 	for _, entry := range entries {
-		after, _, e := core.Dispatch(state, object(entry.event["request"], "request"))
-		must(e)
-		history := array(after["history"], "history")
-		require(integer(after["revision"]) == integer(state["revision"])+1 && equal(object(history[len(history)-1], "event")["changes"], entry.event["changes"]), "Replaying would change the original business effect")
-		state = after
+		state = replayMergeEvent(state, entry.event)
 	}
 	must(core.Validate(state))
 	return state
 }
+func replayMergeEvent(state, event Object) Object {
+	after, _, err := core.ReplayRequest(state, object(event["request"], "request"))
+	if err != nil {
+		must(fmt.Errorf("cannot replay history revision %v (%v); use a client that supports the recorded request: %w", event["revision"], event["action"], err))
+	}
+	revision := int64(1)
+	if state != nil {
+		revision = integer(state["revision"]) + 1
+	}
+	history := array(after["history"], "history")
+	require(integer(after["revision"]) == revision && equal(object(history[len(history)-1], "event")["changes"], event["changes"]), "Replaying would change the original business effect")
+	return after
+}
+
 func attempt(fn func()) (err error) { defer guard(&err); fn(); return nil }
 
 func sortedKeys(values map[string]string) []string {

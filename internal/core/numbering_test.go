@@ -101,10 +101,10 @@ func TestTopicReferencesNormalizeOnlyStructuredFields(t *testing.T) {
 	if err != nil || len(arr(history["rows"], "rows")) < 3 {
 		t.Fatal("short history query", err)
 	}
-	// Requests retain what the caller supplied; persisted relationships are canonical.
+	// Persisted requests use canonical identities as well as relationships.
 	last := obj(arr(s["history"], "history")[num(s["revision"])-1], "event")
-	if obj(obj(last["request"], "request")["params"], "params")["id"] != "T2" {
-		t.Fatal("caller request rewritten")
+	if obj(obj(last["request"], "request")["params"], "params")["id"] != second {
+		t.Fatal("history request did not use the canonical ID")
 	}
 }
 func TestTopicNumbersGrowBeyond999AndIgnoreCurrentSorting(t *testing.T) {

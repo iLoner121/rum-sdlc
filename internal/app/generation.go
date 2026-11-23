@@ -40,8 +40,7 @@ func writeResource(path string, value any) {
 	must(e)
 	must(fsutil.WriteBytes(path, raw))
 }
-func desiredResources(root, meta, id, home, name string) map[string][]byte {
-	loadConfig(meta, true)
+func desiredResources(root, id, home, name string) map[string][]byte {
 	result := map[string][]byte{}
 	prefix := ".agents/skills/rum-project/"
 	must(fs.WalkDir(assets.Files, "resources/project-skill", func(path string, entry fs.DirEntry, err error) error {
@@ -187,9 +186,10 @@ func (o *operation) prepareAgentNative(record Object, physical string, updateCon
 	must(e)
 	value, e := jsonvalue.Decode(raw)
 	must(e)
-	cfg := validateConfig(object(value, "configuration"))
+	originalConfig := object(value, "configuration")
+	cfg := validateConfig(originalConfig)
 	expected := contract(o.ctx, "workspace.generated_files", []any{root, filepath.Join(actual, "meta"), record["id"], o.device.Home, record["workspace_name"]}, func() map[string][]byte {
-		return desiredResources(root, filepath.Join(actual, "meta"), str(record["id"]), o.device.Home, str(record["workspace_name"]))
+		return desiredResources(root, str(record["id"]), o.device.Home, str(record["workspace_name"]))
 	})
 	old := Object{}
 	inventoryPath := agentPath(actual, ".rum-agent-files.json")
@@ -245,8 +245,11 @@ func (o *operation) prepareAgentNative(record Object, physical string, updateCon
 				b["id"] = remote["id"]
 				b["branch"] = remote["branch"]
 			}
-			cfg["rules_version"] = Version
-			return jsonBytes(validateConfig(cfg))
+			cfg = validateConfig(cfg)
+			if equal(originalConfig, cfg) {
+				return raw
+			}
+			return jsonBytes(cfg)
 		})
 		output["meta/project-config.json"] = hex.EncodeToString(data)
 	}

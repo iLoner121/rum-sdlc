@@ -61,7 +61,7 @@ func (o *operation) doctor(p Object) Object {
 	}
 	checks := []any{}
 	ok := true
-	var compatibility any
+	var compatibility, configuration any
 	check := func(name string, value bool, detail string) {
 		checks = append(checks, Object{"name": name, "ok": value, "detail": detail})
 		ok = ok && value
@@ -81,8 +81,16 @@ func (o *operation) doctor(p Object) Object {
 		}
 	}
 	check("runtime", e == nil && fsutil.IsFile(runtime), runtimeDetail)
-	check("configuration", fsutil.IsFile(filepath.Join(str(record["path"]), configFile)), "Project workflow configuration")
-	if truth(record["workspace"]) && fsutil.IsFile(filepath.Join(root, "meta", configFile)) {
+	configPath := str(record["path"])
+	if configError := attempt(func() {
+		cfg := loadConfig(configPath, true)
+		configuration = Object{"format": cfg["format"], "rules_version": cfg["rules_version"]}
+	}); configError != nil {
+		check("configuration", false, configError.Error())
+	} else {
+		check("configuration", true, "Shared project configuration is readable")
+	}
+	if truth(record["workspace"]) {
 		value, e := o.checkAgent(record)
 		if e != nil {
 			check("compatible rules", false, e.Error())
@@ -92,8 +100,7 @@ func (o *operation) doctor(p Object) Object {
 		}
 	}
 	e = attempt(func() {
-		loadConfig(str(record["path"]), true)
-		if record["remote"] != nil {
+		if configuration != nil && record["remote"] != nil {
 			o.engine(record, nil).validateLocal(str(record["path"]), str(record["id"]))
 			check("meta structure", true, "Store, configuration, manifest and remote binding are valid")
 		}
@@ -104,13 +111,13 @@ func (o *operation) doctor(p Object) Object {
 		check("generation recovery", !fsutil.Exists(filepath.Join(root, ".rum-agent-update.json")), "agent-install recovers interrupted generation")
 	})
 	if e != nil {
-		check("project configuration", false, e.Error())
+		check("meta synchronization", false, e.Error())
 	}
 	dataStatus := record["data_status"]
 	if !has(record, "data_status") {
 		dataStatus = record["status"]
 	}
-	return Object{"ok": ok, "project_compatibility": compatibility, "checks": checks, "launch_directory": root, "code_status": "not-inspected", "reports": []any{}, "data_status": dataStatus, "status": record["status"], "device_meta_auth": o.db["meta_auth"], "note": "ok describes RumSDLC health; code reports never block it. Launch from this root. Starting inside code may stop discovery at code/.git. Actual host loading must be checked in the agent session."}
+	return Object{"ok": ok, "project_configuration": configuration, "project_compatibility": compatibility, "checks": checks, "launch_directory": root, "code_status": "not-inspected", "reports": []any{}, "data_status": dataStatus, "status": record["status"], "device_meta_auth": o.db["meta_auth"], "note": "ok describes RumSDLC health; code reports never block it. Launch from this root. Starting inside code may stop discovery at code/.git. Actual host loading must be checked in the agent session."}
 }
 func explain(device *Device, action string) Object {
 	if action != "" {

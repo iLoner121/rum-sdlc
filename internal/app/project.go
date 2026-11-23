@@ -81,7 +81,9 @@ func validateConfig(value Object) Object {
 	format := str(value["format"])
 	require(oneOf(format, "rum-workspace/1 rum-workspace/2 rum-workspace/3 rum-workspace/4 rum-workspace/5"), "Unsupported workspace configuration")
 	text(value["name"], "Missing workspace name")
-	require(value["rules_version"] == Version || oneOf(str(value["rules_version"]), "0.2.0 0.3.0 0.4.0 0.4.1 0.5.0 0.6.0 0.7.0 0.7.1 0.7.2 0.7.3 0.7.4 0.7.5 0.8.0 0.8.1 0.8.2 0.8.3 0.8.4 0.8.5"), "Requested workflow version is not installed")
+	// This records the bundle that generated the configuration. Its compatibility
+	// is determined by the configuration format and contents.
+	text(value["rules_version"], "Invalid project rules version")
 	result := copyObject(value)
 	if format == "rum-workspace/1" {
 		result = Object{"format": "rum-workspace/2", "name": value["name"], "rules_version": value["rules_version"], "repositories": Object{"meta": Object{"url": nil, "auth": Object{"mode": "device"}, "visibility": "private"}, "code": Object{"url": value["code_repository"], "auth": Object{"mode": "global"}}}}

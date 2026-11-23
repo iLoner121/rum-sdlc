@@ -24,7 +24,17 @@ func Request(action string, params Object, when, reason string, evidence, decisi
 
 // Dispatch evaluates a command without mutating the caller's snapshot.
 // Validation of persisted snapshots is the store's responsibility.
-func Dispatch(before Object, request Object) (after Object, result any, err error) {
+func Dispatch(before Object, request Object) (Object, any, error) {
+	return dispatch(before, request, false)
+}
+
+// ReplayRequest executes a recorded request while retaining its original
+// representation in the resulting history, including legacy short references.
+func ReplayRequest(before Object, request Object) (Object, any, error) {
+	return dispatch(before, request, true)
+}
+
+func dispatch(before Object, request Object, replay bool) (after Object, result any, err error) {
 	defer catch(&err)
 	exact(request, "action params date reason evidence decision", "Invalid command envelope")
 	action := str(request["action"])
@@ -62,7 +72,10 @@ func Dispatch(before Object, request Object) (after Object, result any, err erro
 	effective := clone(request).(Object)
 	effective["params"] = canonicalParams(before, action, p)
 	result = apply(after, effective)
-	return seal(before, after, request, result)
+	if replay {
+		return seal(before, after, request, result)
+	}
+	return seal(before, after, effective, result)
 }
 
 func seal(before, after, request Object, result any) (Object, any, error) {

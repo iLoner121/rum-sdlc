@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix='rum-v090-',dir='/private/tmp') as folde
         assert preview['rules_version']==current_version and snapshot(workspace)==before
         call('project-update','--project',record['id'],'--expect-revision',preview['revision'])
         assert json.loads((workspace/'.rum-context.json').read_text())['version']==current_version
-        assert json.loads((workspace/'meta/project-config.json').read_text())['rules_version']==current_version
+        assert json.loads((workspace/'meta/project-config.json').read_text())['rules_version']=='0.8.5'
         assert (workspace/'meta/state.json').read_bytes()==state
         health=call('doctor','--project',record['id'])
         assert health['ok'] and not health['project_compatibility']['update_available']
@@ -61,4 +61,4 @@ with tempfile.TemporaryDirectory(prefix='rum-v090-',dir='/private/tmp') as folde
         fresh=call('workspace-init','--parent',str(root/'projects'),'--name','new','--date','2026-11-06')
         assert json.loads((Path(fresh['workspace'])/'.rum-context.json').read_text())['version']==current_version
         assert call('doctor','--project',fresh['id'])['ok']
-        print('PASS:',kind,'0.8.5 -> 0.9.0; old release/project preserved, explicit update and new project use 0.9.0, state protocol remains 4.1.2')
+        print('PASS:', kind, f'0.8.5 -> {current_version}; shared rules provenance and protocol preserved, local resources refreshed')

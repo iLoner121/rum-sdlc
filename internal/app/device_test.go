@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"rumsdlc/internal/core"
 	"rumsdlc/internal/fsutil"
 	"rumsdlc/internal/jsonvalue"
 	"strings"
@@ -186,6 +187,89 @@ func TestNativeGitTwoDeviceSyncAndDocumentDeletion(t *testing.T) {
 		t.Fatal("deletion did not synchronize")
 	}
 }
+func TestSharedConfigCompatibilityAcrossImportSyncAndAgentRefresh(t *testing.T) {
+	a, b, _, root := setupDevices(t)
+	record := call(t, a, "workspace-init", Object{"parent": filepath.Join(root, "a-projects"), "project_id": "P-demo", "name": "Demo", "date": "2026-11-06"})
+	meta := str(record["path"])
+	project := Object{"project_id": record["id"]}
+	configPath := filepath.Join(meta, configFile)
+	config, err := fsutil.ReadJSON(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config["rules_version"] = "0.9.0"
+	must(fsutil.WriteJSON(configPath, config))
+	workspace := str(record["workspace"])
+	contextPath := filepath.Join(workspace, ".rum-context.json")
+	oldContext, err := fsutil.ReadJSON(contextPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldContext["version"] = "0.9.0"
+	must(fsutil.WriteJSON(contextPath, oldContext))
+	inventoryPath := filepath.Join(workspace, ".rum-agent-files.json")
+	inventory, err := fsutil.ReadJSON(inventoryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contextBytes, err := os.ReadFile(contextPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory[".rum-context.json"] = jsonvalue.HashBytes(contextBytes)
+	// Use exactly the earlier bundled model for its older script contract.
+	modelPath := filepath.Join(str(oldContext["core_scripts"]), "model.py")
+	model, err := os.ReadFile(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, _, ok := strings.Cut(string(model), "\n\n\ndef topic(")
+	if !ok {
+		t.Fatal("missing boundary of legacy model")
+	}
+	oldModel := []byte(legacy + "\n")
+	must(os.WriteFile(modelPath, oldModel, 0600))
+	inventory[filepath.ToSlash(strings.TrimPrefix(modelPath, workspace+string(os.PathSeparator)))] = jsonvalue.HashBytes(oldModel)
+	must(fsutil.WriteJSON(inventoryPath, inventory))
+	health := call(t, a, "doctor", project)
+	if health["ok"] != true || object(health["project_compatibility"], "project compatibility")["update_available"] != true {
+		t.Fatal(health)
+	}
+	call(t, a, "enable", Object{"project_id": record["id"], "repository_name": "RumSDLC_Demo"})
+	imported := call(t, b, "workspace-import", Object{"repository": "alice/RumSDLC_Demo", "parent": filepath.Join(root, "b-projects")})
+	if loadConfig(str(imported["path"]), true)["rules_version"] != "0.9.0" {
+		t.Fatal("import changed shared rules provenance")
+	}
+	original, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview := call(t, a, "project-update", Object{"project_id": record["id"], "dry_run": true})
+	if len(array(preview["files"], "project update files")) == 0 {
+		t.Fatal("agent update did not refresh old resources")
+	}
+	call(t, a, "project-update", Object{"project_id": record["id"], "expect_revision": preview["revision"]})
+	after, err := os.ReadFile(configPath)
+	if err != nil || string(after) != string(original) {
+		t.Fatal("agent update changed shared configuration", err)
+	}
+	config = loadConfig(meta, true)
+	config["rules_version"] = "99.0.0"
+	must(fsutil.WriteJSON(configPath, config))
+	doc(t, meta, "compatibility.md", "compatible snapshot")
+	call(t, a, "sync", project)
+	result := call(t, b, "sync", project)
+	if result["data_status"] != "synced" || loadConfig(str(imported["path"]), true)["rules_version"] != "99.0.0" {
+		t.Fatal(result)
+	}
+	config["format"] = "rum-workspace/99"
+	must(fsutil.WriteJSON(configPath, config))
+	health = call(t, a, "doctor", project)
+	if health["ok"] != false || health["project_compatibility"] == nil {
+		t.Fatal("unknown configuration format must fail independently of local agent resources", health)
+	}
+}
+
 func TestNativeSyncConflictRetentionAndAcceptedRecovery(t *testing.T) {
 	a, b, _, root := setupDevices(t)
 	record := create(t, a, root)
@@ -225,9 +309,17 @@ func TestNativeBusinessMergeCommutesOnlyDisjointEntities(t *testing.T) {
 	a, b, _, root := setupDevices(t)
 	create(t, a, root)
 	milestone := command(t, a, "milestone.create", Object{"name": "Stage"})["result"]
+	topic := command(t, a, "topic.create", Object{"name": "Topic", "type": "fix", "slug": "topic", "unassigned_reason": "Test"})["result"]
+	meta := filepath.Join(root, "project-a")
+	legacy := core.Request("entity.rename", Object{"table": "topics", "id": "T1", "name": "Legacy topic name"}, "2026-11-06", "Test", "Evidence", "Decision")
+	oldState, _, err := core.ReplayRequest(readState(meta), legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	must(fsutil.WriteJSON(filepath.Join(meta, "state.json"), oldState))
 	call(t, a, "enable", Object{"project_id": "P-demo"})
 	call(t, b, "import", Object{"repository": "alice/RumSDLC_Demo", "path": filepath.Join(root, "project-b")})
-	command(t, a, "entity.rename", Object{"table": "project", "id": "P-demo", "name": "Renamed Project"})
+	command(t, a, "entity.rename", Object{"table": "topics", "id": "T1", "name": "Renamed Topic"})
 	command(t, b, "entity.rename", Object{"table": "milestones", "id": milestone, "name": "Renamed Stage"})
 	call(t, a, "sync", Object{"project_id": "P-demo"})
 	result := call(t, b, "sync", Object{"project_id": "P-demo"})
@@ -237,9 +329,20 @@ func TestNativeBusinessMergeCommutesOnlyDisjointEntities(t *testing.T) {
 	host, _ := os.Hostname()
 	assertStandardMetaCommit(t, filepath.Join(root, "project-b"), str(result["head"]), host)
 	call(t, a, "sync", Object{"project_id": "P-demo"})
-	state := readState(filepath.Join(root, "project-a"))
-	if state["project"].(Object)["name"] != "Renamed Project" || state["milestones"].(Object)[str(milestone)].(Object)["name"] != "Renamed Stage" {
+	state := readState(meta)
+	if state["topics"].(Object)[str(topic)].(Object)["name"] != "Renamed Topic" || state["milestones"].(Object)[str(milestone)].(Object)["name"] != "Renamed Stage" {
 		t.Fatal("commuting merge lost edits")
+	}
+	history, originalHistory := array(state["history"], "history"), array(oldState["history"], "original history")
+	if !equal(history[:len(originalHistory)], originalHistory) {
+		t.Fatal("merge changed legacy common history")
+	}
+	for _, item := range history[len(originalHistory):] {
+		event := object(item, "event")
+		params := object(object(event["request"], "event request")["params"], "event params")
+		if params["table"] == "topics" && params["id"] != topic {
+			t.Fatal("new merge event lost the canonical ID", params)
+		}
 	}
 }
 func TestNativeRegistryCASAndDiscoveryFailure(t *testing.T) {
