@@ -182,7 +182,7 @@ func (o *operation) buildWorkspace(mode string, p Object) (record Object) {
 	}
 	saveConfig(filepath.Join(stage, "meta"), cfg)
 	values := Object{"id": pid, "workspace": root, "workspace_name": name}
-	o.installAgent(values, stage, false, nil)
+	o.installWorkspaceAgent(values, stage)
 	state["phase"] = "ready"
 	must(fsutil.WriteJSON(journal, state))
 	must(os.Rename(stage, root))
@@ -267,7 +267,7 @@ func (o *operation) importWorkspace(p Object) Object {
 	saveConfig(filepath.Join(stage, "meta"), cfg)
 	must(os.Mkdir(filepath.Join(stage, "code"), 0700))
 	values := Object{"id": object(state["project"], "Project")["id"], "workspace": root, "workspace_name": name}
-	o.installAgent(values, stage, false, nil)
+	o.installWorkspaceAgent(values, stage)
 	must(os.Rename(stage, root))
 	published = true
 	record := o.register(filepath.Join(root, "meta"), state)

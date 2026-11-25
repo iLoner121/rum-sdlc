@@ -274,8 +274,8 @@ func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer
 		if err != nil {
 			return err
 		}
-		for _, key := range []string{"path", "parent"} {
-			if value, ok := params[key].(string); ok {
+		for _, key := range []string{"path", "parent", "file"} {
+			if value, ok := params[key].(string); ok && (key != "file" || value != "") {
 				path, e := fsutil.AbsoluteInput(value)
 				if e != nil {
 					return e

@@ -37,6 +37,8 @@ func (o *operation) dispatch(method string, p Object) (result any, err error) {
 		return o.importWorkspace(p), nil
 	case "workspace-recover":
 		return o.recoverWorkspace(p), nil
+	case "agents-template":
+		return o.configureAgentsTemplate(p), nil
 	case "agent-install":
 		return o.updateAgent(p, false), nil
 	case "project-update":

@@ -37,6 +37,23 @@ rum --home /data/rumsdlc doctor --project PROJECT_ID
 每条命令的参数通过 `rum COMMAND --help` 查询；`rum explain` 返回命令、数据模型、
 命名规则和本手册的位置；`rum explain --action ACTION` 返回某项业务操作的参数。
 
+## 新工作区的 AGENTS.md 模板
+
+```text
+rum agents-template --file ./team-rules.md
+rum agents-template
+rum agents-template --clear
+```
+
+模板是当前设备目录下的配置。设置时复制文件正文，之后可移动或删除源文件。
+模板须为非空 UTF-8 文本，最大 1 MiB。初始化、接管或导入新工作区时，
+RumSDLC 将模板追加到工程根目录的内置 `AGENTS.md`。模板中的
+`{{project_name}}` 和 `{{project_id}}` 会替换为工作区名称和实际 Project ID。
+
+修改或清除模板只对后续接入生效。`doctor` 会将已投放的正文列为本地定制。
+运行 `project-update` 或 `agent-install` 刷新该工程前，先备份
+`AGENTS.md` 并移走原文件，刷新后将自定义段落合并进新的内置指引。
+
 ## 本机浏览器界面
 
 ```text
