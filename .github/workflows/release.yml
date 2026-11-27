@@ -57,8 +57,31 @@ jobs:
         run: |
           branch=$(python3 -c 'import json,os; print(json.loads(os.environ["PR"])["headBranchName"])')
           gh workflow run native.yml --repo "$REPO" --ref "$branch"
-  test:
+  package:
     needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build fixed stable distribution
+        env:
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
+        run: go run ./cmd/build --channel stable --commit "$SOURCE_SHA"
+      - uses: actions/upload-artifact@v4
+        id: upload
+        with:
+          name: rumsdlc-release-candidate-${{ github.run_attempt }}
+          path: build/native/
+          if-no-files-found: error
+  test:
+    needs: [plan, package]
     if: needs.plan.outputs.publish == 'true'
     strategy:
       fail-fast: false
@@ -76,12 +99,23 @@ jobs:
       - run: go test -race -count=1 ./...
       - run: go vet ./...
       - run: python3 -m unittest discover -s .github/scripts -p "*_test.py"
-      - run: go build -trimpath ./cmd/rum
-      - shell: bash
-        run: |
-          if [ -f rum.exe ]; then ./rum.exe version; else ./rum version; fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-workflow
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.package.outputs.artifact-id }}
+          merge-multiple: true
+          path: build/native/
+      - name: Run the packaged CLI
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: python3 release-workflow/.github/scripts/release.py smoke-package "$SOURCE_SHA" "$RELEASE_VERSION"
   publish:
-    needs: [plan, test]
+    needs: [plan, package, test]
     if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -92,18 +126,17 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ needs.plan.outputs.sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/download-artifact@v4
         with:
-          go-version: stable
-          cache: false
-      - name: Build fixed stable distribution
-        env:
-          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
-        run: go run ./cmd/build --channel stable --commit "$SOURCE_SHA"
+          artifact-ids: ${{ needs.package.outputs.artifact-id }}
+          merge-multiple: true
+          path: build/native/
       - name: Publish complete immutable release
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ needs.plan.outputs.sha }}
           RELEASE_VERSION: ${{ needs.plan.outputs.version }}
           RELEASE_PR: ${{ needs.plan.outputs.pr }}
-        run: python3 .github/scripts/release.py publish "$SOURCE_SHA" "$RELEASE_VERSION" "$RELEASE_PR"
+        run: |
+          chmod +x "build/native/$RELEASE_VERSION/rum-linux-amd64"
+          python3 .github/scripts/release.py publish "$SOURCE_SHA" "$RELEASE_VERSION" "$RELEASE_PR"

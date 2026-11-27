@@ -4,10 +4,13 @@ import hashlib
 import json
 import os
 import pathlib
+import platform
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
+import zipfile
 
 REPO = os.environ.get('GITHUB_REPOSITORY', 'iLoner121/rum-sdlc')
 
@@ -30,6 +33,26 @@ def version_at(sha):
     if manifest['.'] != version:
         raise RuntimeError('Source version and release manifest differ')
     return version
+
+def metadata_only(base, head):
+    try:
+        base = run('git', 'merge-base', base, head)
+    except subprocess.CalledProcessError:
+        return False
+    version_file = 'internal/release/version.go'
+    allowed = {version_file, 'CHANGELOG.md', '.release-please-manifest.json'}
+    files = set(run('git', 'diff', '--name-only', '--no-renames', base, head, '--').splitlines())
+    if version_file not in files or not files <= allowed:
+        return False
+    pattern = r'(?m)^(const Version = ")[0-9]+\.[0-9]+\.[0-9]+(" // x-release-please-version)$'
+    try:
+        before = run('git', 'show', f'{base}:{version_file}')
+        after = run('git', 'show', f'{head}:{version_file}')
+    except subprocess.CalledProcessError:
+        return False
+    old, old_count = re.subn(pattern, r'\1VERSION\2', before)
+    new, new_count = re.subn(pattern, r'\1VERSION\2', after)
+    return old_count == new_count == 1 and old == new and before != after
 
 def key(v):
     if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', v):
@@ -72,13 +95,9 @@ def plan():
     p=json.loads(run('go','run','./cmd/release-plan','--base',tag,'--source',sha))
     output({'publish':False,'prepare':p['releasable'],'sha':sha,'version':p['version'],'pr':0})
 
-def publish(sha,version,pr):
-    if version_at(sha)!=version or run('git','rev-parse','HEAD')!=sha:
-        raise RuntimeError('Publish checkout does not match approved release SHA')
-    tag='v'+version
-    directory=pathlib.Path('build/native')/version
+def distribution_files(directory, sha, version, channel):
     sums=json.loads((directory/'checksums.json').read_text())
-    if sums.get('source_commit')!=sha or sums.get('channel')!='stable' or sums['version']!=version:
+    if sums.get('source_commit')!=sha or sums.get('channel')!=channel or sums['version']!=version:
         raise RuntimeError('Distribution identity mismatch')
     required={'checksums.json','release-manifest.json',f'rumsdlc-{version}-source.zip'}
     for system in ('darwin','linux','windows'):
@@ -91,12 +110,61 @@ def publish(sha,version,pr):
     for name,digest in sums['files'].items():
         if name not in files or hashlib.sha256(files[name].read_bytes()).hexdigest()!=digest:
             raise RuntimeError('Distribution checksum mismatch: '+name)
-    native=files['rum-linux-amd64']
-    identity=json.loads(run(str(native.resolve()),'version'))['result']
-    if identity['version']!=version or identity['channel']!='stable' or identity['commit']!=sha or identity['dirty']:
-        raise RuntimeError('Built native program identity mismatch')
     if not (required-{'checksums.json'})<=sums['files'].keys():
         raise RuntimeError('Required release files lack checksums')
+    return files
+
+def check_identity(binary, sha, version, channel):
+    identity = json.loads(run(str(binary.resolve()), 'version'))['result']
+    if identity['version'] != version or identity['channel'] != channel or identity['commit'] != sha or identity['dirty']:
+        raise RuntimeError('Built native program identity mismatch')
+
+def native_target():
+    system = {'Darwin': 'darwin', 'Linux': 'linux', 'Windows': 'windows'}[platform.system()]
+    arch = {'aarch64': 'arm64', 'arm64': 'arm64', 'amd64': 'amd64', 'x86_64': 'amd64'}[platform.machine().lower()]
+    return system, arch
+
+def check_candidate():
+    sha = run('git', 'rev-parse', 'HEAD')
+    version = version_at(sha)
+    files = distribution_files(pathlib.Path('build/native') / version, sha, version, 'dev')
+    system, arch = native_target()
+    name = f'rum-{system}-{arch}' + ('.exe' if system == 'windows' else '')
+    check_identity(files[name], sha, version, 'dev')
+
+def smoke_package(sha, version):
+    system, arch = native_target()
+    name = f'rumsdlc-{version}-{system}-{arch}'
+    files = distribution_files(pathlib.Path('build/native') / version, sha, version, 'stable')
+    with tempfile.TemporaryDirectory(prefix='rum-smoke-', dir=None if system == 'windows' else '/tmp') as temporary:
+        root = pathlib.Path(temporary).resolve()
+        binary = root / ('rum.exe' if system == 'windows' else 'rum')
+        if system == 'windows':
+            with zipfile.ZipFile(files[name + '.zip']) as archive:
+                binary.write_bytes(archive.read(binary.name))
+        else:
+            with tarfile.open(files[name + '.tar.gz']) as archive:
+                member = archive.getmember(binary.name)
+                if not member.isfile() or not member.mode & 0o100:
+                    raise RuntimeError('Packaged program is not an executable file')
+                with archive.extractfile(member) as source:
+                    binary.write_bytes(source.read())
+                binary.chmod(member.mode & 0o777)
+        check_identity(binary, sha, version, 'stable')
+        cli = (str(binary), '--home', str(root / 'device'))
+        workspace = json.loads(run(*cli, 'workspace-init', '--parent', str(root / 'projects'),
+                                   '--name', 'smoke', '--date', '2026-01-01'))['result']
+        health = json.loads(run(*cli, 'doctor', '--project', workspace['id']))['result']
+        if not health['ok']:
+            raise RuntimeError('Packaged program could not initialize a healthy workspace')
+        print(f'Verified packaged CLI on {system}/{arch} at {sha}')
+
+def publish(sha,version,pr):
+    if version_at(sha)!=version or run('git','rev-parse','HEAD')!=sha:
+        raise RuntimeError('Publish checkout does not match approved release SHA')
+    tag='v'+version
+    files=distribution_files(pathlib.Path('build/native')/version, sha, version, 'stable')
+    check_identity(files['rum-linux-amd64'], sha, version, 'stable')
     refs=run('git','ls-remote','origin',f'refs/tags/{tag}',f'refs/tags/{tag}^{{}}').splitlines()
     if refs:
         refmap={x.split()[1]:x.split()[0] for x in refs}
@@ -127,7 +195,7 @@ def publish(sha,version,pr):
                 raise RuntimeError('Published release is missing an asset; create a new version')
             subprocess.run(['gh','release','upload',tag,str(path),'--repo',REPO],check=True)
     fresh=api(f'repos/{REPO}/releases/{r["id"]}')
-    if not required<={a['name'] for a in fresh['assets']}:
+    if not files.keys()<={a['name'] for a in fresh['assets']}:
         raise RuntimeError('Release assets incomplete after upload')
     if fresh['draft']:
         api(f'repos/{REPO}/releases/{r["id"]}','PATCH',{'draft':False,'prerelease':False,'make_latest':'true'})
@@ -140,4 +208,8 @@ def publish(sha,version,pr):
 if __name__=='__main__':
     if sys.argv[1]=='plan':plan()
     elif sys.argv[1]=='publish':publish(*sys.argv[2:5])
+    elif sys.argv[1]=='metadata-only':print(str(metadata_only(*sys.argv[2:4])).lower())
+    elif sys.argv[1]=='check-version':print(version_at('HEAD'))
+    elif sys.argv[1]=='check-candidate':check_candidate()
+    elif sys.argv[1]=='smoke-package':smoke_package(*sys.argv[2:4])
     else:raise SystemExit('Unknown release operation')

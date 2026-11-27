@@ -159,6 +159,9 @@ POSIX 依赖保留，符合本次仅重构系统层的范围。
 查询 `rum update-status`；只有 installed 才表示最终入口验证成功。
 开发构建切回稳定版需显式选择渠道。详见[更新与恢复](internal/assets/docs/usage.md#检查更新与本机自更新)。
 
-本仓库采用 SemVer 与发布 PR：main 变更自动汇总为候选 PR，维护者合并后，固定
-提交在三端测试并生成六平台包与校验文件，附件完整才公开 GitHub Release。
+日常 CI 的试用包由 Linux 检查和交叉构建产出，macOS 与 Windows 原生测试独立报告。
+只修改版本元数据的 Release PR 校验版本和打包。其他改动仍走日常检查。
+维护者合并 Release PR 后，Actions 从固定提交交叉构建六个平台包与校验文件。
+Linux、macOS 和 Windows 各自运行全量测试，并解压运行匹配本机的候选包。
+三端通过后，同一批产物上传到 GitHub Releases。
 内嵌 skill 的修订也纳入发版判定。该自动化仅属于 RumSDLC，不作为被管理项目的统一发布策略。

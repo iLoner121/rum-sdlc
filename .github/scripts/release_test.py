@@ -10,6 +10,19 @@ policy=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(policy)
 
 class ReleaseGates(unittest.TestCase):
+    def test_metadata_only_requires_a_release_version_edit(self):
+        before = 'package release\nconst Version = "1.0.0" // x-release-please-version'
+        after = before.replace('1.0.0', '1.1.0')
+        paths = '\n'.join(['CHANGELOG.md', '.release-please-manifest.json', 'internal/release/version.go'])
+        with patch.object(policy, 'run', side_effect=['base', paths, before, after]):
+            self.assertTrue(policy.metadata_only('origin/main', 'HEAD'))
+        with patch.object(policy, 'run', side_effect=['base', paths + '\ncmd/rum/main.go']):
+            self.assertFalse(policy.metadata_only('origin/main', 'HEAD'))
+        with patch.object(policy, 'run', side_effect=['base', 'CHANGELOG.md']):
+            self.assertFalse(policy.metadata_only('origin/main', 'HEAD'))
+        with patch.object(policy, 'run', side_effect=['base', paths, before, after + '\nvar changed = true']):
+            self.assertFalse(policy.metadata_only('origin/main', 'HEAD'))
+
     def test_no_publish_from_wrong_checkout(self):
         with patch.object(policy,'version_at',return_value='1.0.0'), patch.object(policy,'run',return_value='other'), patch.object(policy,'api') as api:
             with self.assertRaisesRegex(RuntimeError,'checkout'):

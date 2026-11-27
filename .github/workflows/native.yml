@@ -1,13 +1,63 @@
 name: Native system
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches-ignore: ['release-please--**']
+    tags: ['**']
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      release-metadata: ${{ steps.scope.outputs.metadata }}
+    steps:
+      - uses: actions/checkout@v4
+        id: checkout
+        with:
+          fetch-depth: 0
+        if: >-
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/release-please--')) ||
+          (github.event_name == 'pull_request' && github.base_ref == 'main' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          startsWith(github.head_ref, 'release-please--'))
+      - id: scope
+        if: steps.checkout.outcome == 'success'
+        env:
+          BASE: ${{ github.event.before || github.event.pull_request.base.sha }}
+        run: |
+          metadata=$(python3 .github/scripts/release.py metadata-only "${BASE:-origin/main}" HEAD)
+          echo "metadata=$metadata" >> "$GITHUB_OUTPUT"
   test:
+    name: test (ubuntu-latest)
+    needs: scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - if: needs.scope.outputs.release-metadata == 'true'
+        run: python3 .github/scripts/release.py check-version
+      - if: needs.scope.outputs.release-metadata != 'true'
+        run: |
+          git --version
+          go test -race -count=1 ./...
+          go vet ./...
+          python3 -m unittest discover -s .github/scripts -p "*_test.py"
+          go build -trimpath ./cmd/rum
+          ./rum --version
+  native-test:
+    name: test (${{ matrix.os }})
+    needs: scope
+    if: needs.scope.outputs.release-metadata != 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +74,7 @@ jobs:
         run: |
           if [ -f rum.exe ]; then ./rum.exe --version; else ./rum --version; fi
   distribution:
-    needs: test
+    needs: [scope, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +83,10 @@ jobs:
           go-version: stable
           cache: false
       - run: go run ./cmd/build
+      - if: needs.scope.outputs.release-metadata == 'true'
+        run: python3 .github/scripts/release.py check-candidate
       - uses: actions/upload-artifact@v4
         with:
           name: rumsdlc-native
           path: build/native/
+          if-no-files-found: error
