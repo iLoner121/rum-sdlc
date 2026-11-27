@@ -1,5 +1,12 @@
 # 版本记录
 
+## [1.2.0](https://github.com/iLoner121/rum-sdlc/compare/v1.1.1...v1.2.0) (2026-11-27)
+
+
+### Features
+
+* **workspace:** Add device AGENTS.md templates ([83d2417](https://github.com/iLoner121/rum-sdlc/commit/83d2417484ce81729802d6eca652fae7ab9ba229))
+
 ## [1.1.1](https://github.com/iLoner121/rum-sdlc/compare/v1.1.0...v1.1.1) (2026-11-23)
 
 
