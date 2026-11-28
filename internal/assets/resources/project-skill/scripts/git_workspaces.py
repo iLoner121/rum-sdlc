@@ -55,17 +55,66 @@ def same_store(binding, state, store_path):
 
 
 def health(observations,state=None,store_path=None):
-    rows=deepcopy(observations);issues=[]
+    rows = deepcopy(observations)
+    issues = []
+    lines_by_branch = {}
+    bound_topics = []
+    if state is not None:
+        for line_id, line in state['lines'].items():
+            config = line['extensions'].get('git')
+            if isinstance(config, dict) and isinstance(config.get('branch'), str):
+                lines_by_branch.setdefault(config['branch'], []).append(line_id)
+
     for row in rows:
-        errors=[];binding=row.get('binding')
-        if not row.get('available'):errors.append('workspace unavailable')
-        if row.get('binding_error'):errors.append(row['binding_error'])
-        if binding:
-            if binding['branch']!=row.get('branch_name'):errors.append('binding branch is stale')
+        errors = []
+        next_steps = []
+        binding = row.get('binding')
+        row.update(topic=None, line_id=None, target_branch=None)
+        if not row.get('available'):
+            errors.append('workspace unavailable')
+            next_steps.append('Check the original path and backups for uncommitted files. Verify the recorded branch before restoring committed code in a worktree.')
+        if row.get('binding_error'):
+            errors.append(row['binding_error'])
+            next_steps.append('Inspect this path and resolve the reported check or binding error before resuming or removing it.')
+        if binding is not None:
+            if binding['branch'] != row.get('branch_name'):
+                errors.append('binding branch is stale')
+                next_steps.append('Preserve local changes and verify the expected branch. If the intended Topic changed, explicitly unbind and rebind this worktree.')
             if state is not None:
-                if not same_store(binding,state,store_path):errors.append('binding belongs to another Project or Store')
-                elif binding['topic_id'] not in state['topics']:errors.append('bound Topic missing')
-        if errors:issues.append(dict(path=row['path'],errors=errors))
-        row['dirty']=None if row.get('binding_error') else bool(row.get('status'));row['issues']=errors
+                if not same_store(binding, state, store_path):
+                    errors.append('binding belongs to another Project or Store')
+                    next_steps.append('Use the original Store or explicitly reconcile the binding after preserving local changes.')
+                elif binding['topic_id'] not in state['topics']:
+                    errors.append('bound Topic missing')
+                    next_steps.append('Check the original Topic in the Store before changing the binding.')
+                if not errors:
+                    topic = state['topics'][binding['topic_id']]
+                    row['topic'] = {key: topic[key] for key in ('id', 'name', 'status')}
+                    bound_topics.append(row['topic'])
+                    row['line_id'] = m.relation(state, 'line', topic['id'])
+                    try:
+                        row['target_branch'] = ge.line(state, row['line_id'])['branch']
+                    except ValueError as error:
+                        next_steps.append(str(error))
+                    if topic['status'] == 'closed':
+                        next_steps.append('Review the Topic closure and retained code before preparing removal of this worktree.')
+        elif not errors:
+            branch_name = row.get('branch_name')
+            matches = lines_by_branch.get(branch_name, [])
+            if len(matches) == 1:
+                row.update(line_id=matches[0], target_branch=branch_name)
+
+        status = row.get('status')
+        row['dirty'] = None if not row.get('available') or row.get('binding_error') or status is None else bool(status)
+        if row['dirty'] is True:
+            next_steps.append('Keep this worktree to resume the changes, or preserve them before removal.')
+        row['issues'] = errors
+        row['next_steps'] = next_steps
+        if errors:
+            issues.append(dict(path=row['path'], errors=errors))
+    if bound_topics:
+        labels = m.topic_labels(state, {topic['id'] for topic in bound_topics})
+        for topic in bound_topics:
+            topic['short_id'] = labels.get(topic['id'])
     return {'ok':not issues,'worktrees':rows,'issues':issues,'counts':{'total':len(rows),'dirty':sum(r['dirty'] is True for r in rows),'unavailable':sum(not r.get('available') for r in rows)},
             'limits':'Observed workspace/binding health; dirty files are preserved and not automatically repaired'}

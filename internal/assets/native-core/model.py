@@ -14,3 +14,17 @@ def validate(state):
 
 def topic(state, identifier):
     return call('query', state=state, params={'view':'show', 'table':'topics', 'identifier':identifier})['entity']
+
+def topic_labels(state, identifiers):
+    """Read presentation labels from the same snapshot used for binding checks."""
+    labels = {}
+    offset = 0
+    while len(labels) < len(identifiers):
+        page = call('query', state=state, params={
+            'view': 'entities', 'table': 'topics', 'include_closed': True, 'offset': offset, 'limit': 200,
+        })
+        labels.update((row['id'], row['short_id']) for row in page['rows'] if row['id'] in identifiers)
+        offset += len(page['rows'])
+        if offset >= page['total']:
+            break
+    return labels

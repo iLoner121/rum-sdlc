@@ -70,6 +70,14 @@ python3 -B <工程>/.agents/skills/rum-project/scripts/git_adapter.py add --repo
 python3 -B <工程>/.agents/skills/rum-project/scripts/git_adapter.py check --repo <代码树> --store <目录>
 ```
 
+### 并行、恢复与归档
+
+1. 日常串行开发复用主工作区。Topic 真正并行或需要暂时保留未完成改动时，再使用独立工作树。用 `list --repo <代码树> --store <目录>` 查看项目当前现场。每行包含 `primary`、实际路径、分支和 `dirty`，经过校验的绑定会显示 `topic`（编号、名称、状态）、`line_id` 和 `target_branch`。只有当分支对应唯一已配置的 Line 时，未绑定工作树才显示该 Line。没有 Store 时仍可查看 Git 现场和本地绑定。
+2. 暂停时保留原工作树，在 Topic 上下文记录工作树路径、完成位置、下一步与必要的环境说明。继续时从列表按 Topic 找到原来路径，用 `current --repo <原路径> --store <目录>` 核对绑定、实际分支和目标。有多个候选时先核对并选定路径。
+3. 交付后在 Topic 归档中保留验收、交付目标和可达的成果引用。取消或替代时记录原因和成果去向。逐棵处理目录，确认已保留需要的文件与提交、没有进程或共享资源仍在使用，再对该路径和预期 HEAD 运行 `remove --dry-run` 并按批准应用。移除保留分支和管理记录。多个 Topic 可以逐个交到同一开发线并各自收尾，开发线再按自己的规则汇入主线。
+
+遇到异常，按该行的 `issues` 和 `next_steps` 核对。目录缺失或检查不完整时，`dirty: null` 表示文件状态未知。先查原目录和备份，再考虑从已核实的分支恢复已提交代码。绑定错配时先保留现有改动，再核对正确分支或显式重绑。已关闭 Topic 的绑定可以继续用于追溯，实际清理前仍需检查成果、目录和保留引用。仓库级 `check` 的异常可以按路径诊断，其他健康工作树仍可单独使用。
+
 ## 更换 Topic 整合目标
 
 先按已有授权核对范围、依赖与契约影响；执行中的 Topic/Task 先暂停或阻塞。保存原 Topic HEAD，保留脏现场；实际 merge/rebase 仍按 git-safety 的具体授权办理，迁移工具不替你改代码。准备后 HEAD 必须包含新目标真实 tip，原 HEAD 必须仍可达，或由真实 branch/tag 保留。不能只给一个裸 SHA 当永久保留。

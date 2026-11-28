@@ -249,13 +249,25 @@ def add_plan(root,args):
     return dict(result,dependency_refs=selected,code_index=history,first_code=bool(getattr(args,'first_code',False)),code_history_check=getattr(args,'code_history_check',None),target_head=target)
 
 def inspect_workspaces(root,store_path=None):
-    state=Store(store_path).read() if store_path else None;observed=[]
-    for row in trees(root):
-        item=dict(row,available=Path(row['path']).is_dir() and 'prunable' not in row,binding=None,binding_error=None,status=None,branch_name=row.get('branch','').removeprefix('refs/heads/'))
+    state = Store(store_path).read() if store_path else None
+    observed = []
+    common_dir = gitdir(root, True)
+    for position, row in enumerate(trees(root)):
+        path = Path(row['path'])
+        item = dict(row, primary=position == 0, available=path.is_dir() and 'prunable' not in row,
+                    binding=None, binding_error=None, status=None,
+                    branch_name=row.get('branch', '').removeprefix('refs/heads/'))
         if item['available']:
             try:
-                check=repo_check.inspect(Path(row['path']));item['coverage']=check;item['status']='\n'.join(check['status_entries']);v.need(check['checks_complete'],'Incomplete repository checks: '+', '.join(check['unsupported_or_incomplete']));item['binding']=focus(Path(row['path']))
-            except (ValueError,OSError) as e:item['binding_error']=str(e)
+                v.need(repo(path) == path.resolve() and gitdir(path, True) == common_dir,
+                       'Registered path does not point to a worktree of this repository')
+                check = repo_check.inspect(path)
+                item['coverage'] = check
+                item['status'] = '\n'.join(check['status_entries'])
+                v.need(check['checks_complete'], 'Incomplete repository checks: '+', '.join(check['unsupported_or_incomplete']))
+                item['binding'] = focus(path)
+            except (ValueError, OSError) as error:
+                item['binding_error'] = str(error)
         observed.append(item)
     result=workspaces.health(observed,state,store_path)
     if state is not None:result['platform']={'ok':True,'project_id':state['project']['id'],'revision':state['revision']}
