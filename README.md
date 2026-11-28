@@ -97,11 +97,13 @@ Windows PowerShell 使用 `./rum.exe install`。默认路径如下，`~` 表示�
 
 Topic 的用户编号统一为 `T1`、`T2`，项目内按创建历史连续分配，不补零、不复用。查询与创建输出增加 `short_id`；命令、文档和代码关联可用短编号，原长 ID 和文档路径继续有效。新开发分支默认建议 `feat/T42-export-report`，显式名称与已有映射优先。两设备离线创建产生分叉时，先显式恢复冲突、确认分配顺序；详见[使用手册](internal/assets/docs/usage.md#topic-编号与开发分支)。
 
+Topic 可设置 P0–P3 优先级。需求列表和需求池支持按优先级筛选，队列保持原有顺序。设置和查询命令见[使用手册](internal/assets/docs/usage.md#topic-优先级)。
+
 ## 代码结构
 
 | 目录 | 职责 |
 | --- | --- |
-| `internal/core` | 27 项业务操作、校验、历史重放、查询、Markdown 和旧快照转换；不做文件、进程或网络 I/O |
+| `internal/core` | 业务操作、校验、历史重放、查询、Markdown 和旧快照转换；不做文件、进程或网络 I/O |
 | `internal/store` | 状态与文档持久化、预览令牌、并发写保护、兼容的目录锁与恢复 |
 | `internal/app` | 设备登记、工程生命周期、资源投放、代码关联、Git 同步与冲突、身份和远端观察 |
 | `internal/service` | 可选本地服务；与单次 CLI 共用 Device.Call，不复制业务逻辑 |

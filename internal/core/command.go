@@ -14,7 +14,7 @@ var Parameters = map[string]string{
 	"milestone.create": "name", "milestone.activate": "id", "milestone.reorder": "ids", "milestone.close": "id outcome summary successor",
 	"workset.create": "name type", "workset.propose": "id topics", "workset.activate": "id", "workset.change": "id action topics destination", "workset.review": "id", "workset.close": "id outcome summary results goal_acceptance",
 	"line.create": "id name type extensions", "line.state": "id status resume_when observations", "line.close": "id outcome summary verification delivery_record retention discard_decision successor last_release extensions",
-	"topic.create": "name type slug milestone_id line_id unassigned_reason id id_reason", "topic.integration.prepare": "id context", "topic.dependencies": "id dependencies", "topic.state": "id status verification acceptance integration_proof", "topic.close": "id outcome summary verification delivery_record retention successor extensions",
+	"topic.create": "name type slug milestone_id line_id unassigned_reason id id_reason", "topic.integration.prepare": "id context", "topic.dependencies": "id dependencies", "topic.priority": "id priority", "topic.state": "id status verification acceptance integration_proof", "topic.close": "id outcome summary verification delivery_record retention successor extensions",
 	"relation.move": "kind topic_id to destination integration_context", "task.correct": "id result", "task.kind": "id kind", "task.create": "topic_id name kind", "task.state": "id status result destination",
 }
 
@@ -71,6 +71,9 @@ func dispatch(before Object, request Object, replay bool) (after Object, result 
 	after = clone(before).(Object)
 	effective := clone(request).(Object)
 	effective["params"] = canonicalParams(before, action, p)
+	if action == "topic.priority" && !replay {
+		normalizeTopicPriority(effective)
+	}
 	result = apply(after, effective)
 	if replay {
 		return seal(before, after, request, result)

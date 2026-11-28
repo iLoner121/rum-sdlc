@@ -179,6 +179,33 @@ rum daemon stop
 
 短编号的作用域为 Project 的共同历史。共享 Store 上预检后有其他写入，需刷新预检再执行。不同设备离线新建时可能出现相同临时编号；长 ID 仍区分身份，同步会停止自动合并并保留冲突候选，错误列出冲突编号及双方长 ID。先决定分配顺序，从共同历史通过正常预检/API 重放创建（用原 `id` 和 `id_reason`），再以长 ID 重放后续操作，恢复文档/关联并检查；仅在候选正确后显式接受。共同历史编号保持，尚未共享的编号按恢复顺序确认；冲突期间用完整长 ID 沟通，不手改 state.json。
 
+## Topic 优先级
+
+优先级有 P0、P1、P2、P3 四级，P0 最高。已有和新建的 Topic 默认为未设置。优先级与需求池顺序、迭代排期和生命周期独立。
+
+使用 `topic.priority` 设置或修改优先级。以下请求保存在 `priority.json`，日期、编号和依据按实际情况填写。清除时将 `priority` 改为 `null`。
+
+```json
+{
+  "action": "topic.priority",
+  "params": {"id": "T1", "priority": "P1"},
+  "date": "2026-11-28",
+  "reason": "计划复核后调整优先级",
+  "evidence": "计划复核纪要",
+  "decision": "维护者确认 P1"
+}
+```
+
+```sh
+rum tool workflow -- command --store meta --request priority.json --dry-run
+rum tool workflow -- command --store meta --request priority.json --expect-revision 返回的令牌
+rum tool workflow -- query --store meta --view show --table topics --id T1
+rum tool workflow -- query --store meta --view members --kind workset --id POOL --priority P1
+```
+
+列表可用 `--priority unset` 筛选未设置项。需求列表、需求池和详情显示优先级，浏览器保持只读。已关闭迭代仍按冻结结果展示。
+变更记录使用既有 `extension.set` 格式，旧版可继续读取和同步这些记录。
+
 ## 管理仓库命名与发现
 
 创建管理仓库时保留 `RumSDLC_` 前缀，后缀默认取已登记的代码仓库名，没有代码来源时取 Project 显示名。

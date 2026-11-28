@@ -43,6 +43,7 @@ func RunWorkflow(args []string, in io.Reader, out, stderr io.Writer) error {
 		params["kind"] = f.String("kind", "", "Relation kind")
 		params["date"] = f.String("date", "", "User-local date")
 		params["status"] = f.String("status", "", "Status filter")
+		params["priority"] = f.String("priority", "", "Topic priority filter: P0, P1, P2, P3 or unset")
 		params["milestone_id"] = f.String("milestone", "", "Milestone filter")
 		params["line_id"] = f.String("line", "", "Line filter")
 		params["workset_id"] = f.String("workset", "", "Workset filter")

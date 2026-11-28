@@ -10,6 +10,7 @@ import (
 
 type TopicFilter struct {
 	Scope, WorksetID, MilestoneID, LineID, Status, Query, Basis, Revision string
+	Priority                                                              string
 	Offset, Limit                                                         int
 }
 
@@ -196,8 +197,11 @@ func (r *Reader) ReadTopics(pid string, f TopicFilter) (View, error) {
 	if b := str(result["basis"]); b != "" {
 		basis = b
 	}
-	if basis == "historical-results" && (f.Status != "" || f.LineID != "" || f.MilestoneID != "") {
+	if basis == "historical-results" && (f.Status != "" || f.LineID != "" || f.MilestoneID != "" || f.Priority != "") {
 		return View{}, NewReadError("invalid", "Historical results cannot use current-state filters")
+	}
+	if f.Priority != "" && !core.ValidTopicPriorityFilter(f.Priority) {
+		return View{}, NewReadError("invalid", "Invalid Topic priority filter")
 	}
 	if f.Status != "" {
 		for _, status := range strings.Split(f.Status, ",") {
@@ -218,7 +222,14 @@ func (r *Reader) ReadTopics(pid string, f TopicFilter) (View, error) {
 		if !ok {
 			continue
 		}
+		priority := core.TopicPriority(topic)
+		if !core.MatchesTopicPriority(priority, f.Priority) {
+			continue
+		}
 		row := copyObject(topic)
+		if basis != "historical-results" && priority != "" {
+			row["priority"] = priority
+		}
 		row["short_id"] = numbers[id]
 		rel, e := core.ResolveRelations(state, id)
 		if e != nil {

@@ -45,6 +45,11 @@ func Query(s Object, p Object) (result Object, err error) {
 	}
 	order := enum(option(p, "order_by", "id"), "id position", "Order")
 	scope := enum(option(p, "scope", "scope"), "current scope history", "Iteration scope view")
+	priority := str(p["priority"])
+	if p["priority"] != nil {
+		need(ValidTopicPriorityFilter(priority), "Invalid Topic priority filter")
+		need(contains("members orphans iteration-progress", view) || view == "entities" && table == "topics", "Priority filter requires a Topic list")
+	}
 	filters := map[string]any{"milestone": p["milestone_id"], "line": p["line_id"], "workset": p["workset_id"]}
 	for _, v := range filters {
 		if v != nil {
@@ -67,7 +72,7 @@ func Query(s Object, p Object) (result Object, err error) {
 	}
 	switch view {
 	case "iteration-progress":
-		return iterationProgress(s, id, scope, offset, limit, statuses), nil
+		return iterationProgress(s, id, scope, offset, limit, statuses, priority), nil
 	case "line-readiness":
 		return lineReadiness(s, id), nil
 	case "resolve":
@@ -112,6 +117,7 @@ func Query(s Object, p Object) (result Object, err error) {
 		t := entity(s, table, id)
 		result := Object{"revision": s["revision"], "entity": clone(t)}
 		if table == "topics" {
+			withTopicPriority(result["entity"].(Object), t)
 			result["relations"] = resolve(s, id)
 		}
 		return result, nil
@@ -126,7 +132,7 @@ func Query(s Object, p Object) (result Object, err error) {
 		need(contains("line milestone workset", kind), "Unknown relation kind")
 		parent := entity(s, parentTable(kind), id)
 		if kind == "workset" && parent["type"] == "iteration" && parent["status"] == "active" && closed {
-			for _, v := range arr(iterationProgress(s, id, "scope", 0, len(rows(s, "topics")), nil)["rows"], "rows") {
+			for _, v := range arr(iterationProgress(s, id, "scope", 0, len(rows(s, "topics")), nil, "")["rows"], "rows") {
 				selected = append(selected, obj(v, "row"))
 			}
 		} else {
@@ -136,7 +142,7 @@ func Query(s Object, p Object) (result Object, err error) {
 				if kind == "workset" {
 					row["position"] = relationRow(s, kind, t)["position"]
 				}
-				selected = append(selected, row)
+				selected = append(selected, withTopicPriority(row, topic))
 			}
 		}
 		sort.SliceStable(selected, func(i, j int) bool {
@@ -146,7 +152,7 @@ func Query(s Object, p Object) (result Object, err error) {
 			return str(selected[i]["id"]) < str(selected[j]["id"])
 		})
 		if kind == "workset" && parent["status"] == "closed" {
-			need(statuses == nil && p["milestone_id"] == nil && p["line_id"] == nil && p["workset_id"] == nil, "Historical results are frozen; use their recorded dispositions instead of current filters")
+			need(statuses == nil && priority == "" && p["milestone_id"] == nil && p["line_id"] == nil && p["workset_id"] == nil, "Historical results are frozen; use their recorded dispositions instead of current filters")
 			results := arr(obj(parent["closure"], "closure")["results"], "results")
 			return Object{"revision": s["revision"], "basis": "historical-results", "rows": clone(page(results, offset, limit)), "total": len(results)}, nil
 		}
@@ -184,7 +190,7 @@ func Query(s Object, p Object) (result Object, err error) {
 			if relation(s, "milestone", id) == nil && (closed || t["status"] != "closed") {
 				row := clone(t).(Object)
 				row["relations"] = resolve(s, id)
-				selected = append(selected, row)
+				selected = append(selected, withTopicPriority(row, t))
 			}
 		}
 	case "entities":
@@ -192,6 +198,9 @@ func Query(s Object, p Object) (result Object, err error) {
 		for _, id := range keys(rows(s, table)) {
 			t := entity(s, table, id)
 			if closed || t["status"] != "closed" {
+				if table == "topics" && TopicPriority(t) != "" {
+					t = withTopicPriority(clone(t).(Object), t)
+				}
 				selected = append(selected, t)
 			}
 		}
@@ -206,7 +215,7 @@ func Query(s Object, p Object) (result Object, err error) {
 		}
 	}
 	for _, row := range selected {
-		accept := statuses == nil || statuses[str(row["status"])]
+		accept := (statuses == nil || statuses[str(row["status"])]) && MatchesTopicPriority(str(row["priority"]), priority)
 		for kind, value := range filters {
 			if value != nil {
 				accept = accept && equal(relation(s, kind, str(row["id"])), value)
@@ -264,11 +273,11 @@ func statusCounts(rows []Object, choices map[string]string) Object {
 	return c
 }
 
-func iterationProgress(s Object, id, scope string, offset, limit int, statuses map[string]bool) Object {
+func iterationProgress(s Object, id, scope string, offset, limit int, statuses map[string]bool, priority string) Object {
 	w := entity(s, "worksets", id)
 	need(w["type"] == "iteration", "Iteration progress requires an iteration")
 	if w["status"] == "closed" {
-		need(statuses == nil, "Historical results use recorded dispositions, not current status filters")
+		need(statuses == nil && priority == "", "Historical results use recorded dispositions, not current status or priority filters")
 		rows := arr(obj(w["closure"], "closure")["results"], "results")
 		if scope == "current" {
 			rows = []any{}
@@ -324,8 +333,9 @@ func iterationProgress(s Object, id, scope string, offset, limit int, statuses m
 	max := -1
 	add := func(t, participation string, pos int) {
 		topic := entity(s, "topics", t)
-		if statuses == nil || statuses[str(topic["status"])] {
-			selected = append(selected, Object{"id": t, "name": topic["name"], "status": topic["status"], "position": pos, "participation": participation, "current_workset_id": relation(s, "workset", t)})
+		if (statuses == nil || statuses[str(topic["status"])]) && MatchesTopicPriority(TopicPriority(topic), priority) {
+			row := Object{"id": t, "name": topic["name"], "status": topic["status"], "position": pos, "participation": participation, "current_workset_id": relation(s, "workset", t)}
+			selected = append(selected, withTopicPriority(row, topic))
 		}
 	}
 	for _, t := range current {

@@ -31,7 +31,7 @@ export async function render(ctx){
   const copied=el('span',{class:'copy-feedback',role:'status'});
   root.append(pageHeader(topic.name||ctx.route.entityID,topic.short_id||view.short_id||ctx.route.entityID,el('div',{class:'heading-actions'},button('复制 ID',async()=>{try{await navigator.clipboard.writeText(topic.id||ctx.route.entityID);copied.textContent='已复制';}catch{copied.textContent=topic.id||ctx.route.entityID;}}),button('← 返回列表',()=>safeReturn(ctx)),copied)));
   if(error)root.append(errorNotice(error,()=>ctx.navigate({...ctx.route},{replace:true}),{staleAt:view.read_at}));
-  root.append(el('div',{class:'detail-relations'},status(topic.status),topic.status==='closed'?el('span',{class:'muted'},'关闭时归属'):null,el('span',{},`里程碑 ${rel.milestone_id||'未绑定'}`),el('span',{},`工作集合 ${rel.workset_id||'—'}`),el('span',{},`Line ${rel.line_id||'—'}`)));
+  root.append(el('div',{class:'detail-relations'},status(topic.status),el('span',{},`优先级 ${topic.priority || '未设置'}`),topic.status==='closed'?el('span',{class:'muted'},'关闭时归属'):null,el('span',{},`里程碑 ${rel.milestone_id||'未绑定'}`),el('span',{},`工作集合 ${rel.workset_id||'—'}`),el('span',{},`Line ${rel.line_id||'—'}`)));
   const historical=ctx.route.query.get('history_workset');
   if(historical){
     const banner=el('div',{class:'notice history-banner'},'正在核对历史来源…');root.append(banner);

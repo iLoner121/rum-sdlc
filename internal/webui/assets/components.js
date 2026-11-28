@@ -32,7 +32,7 @@ export function pager({offset = 0,limit = 30,total = 0,onPage} = {}) {
 export function pageHeader(title, subtitle, actions) { return el('header',{class:'page-heading'},el('div',{},el('h1',{tabindex:'-1'},title),subtitle ? el('p',{},subtitle) : null),actions ? el('div',{class:'heading-actions'},actions) : null); }
 export function topicTable(rows = [], options = {}) {
   const {projectID,onOpen,showPosition = false,historical = false} = options;
-  const headings = [...(showPosition ? ['顺序'] : []),'编号','名称',historical ? '本轮结果' : '状态','里程碑','工作集合','Line',''];
+  const headings = [...(showPosition ? ['顺序'] : []),'编号','名称',...(historical ? [] : ['优先级']),historical ? '本轮结果' : '状态','里程碑','工作集合','Line',''];
   const table = el('table',{class:'data-table topic-table'},el('thead',{},el('tr',{},...headings.map(h=>el('th',{scope:'col'},h)))));
   const body = el('tbody');
   for (const raw of rows) {
@@ -48,7 +48,7 @@ export function topicTable(rows = [], options = {}) {
     const target = {page:'detail',projectID,entityID:id,query: historical ? {history_workset:options.worksetID || '',disposition:row.disposition || ''} : {}};
     const anchor = link(name,target);
     if (onOpen) anchor.addEventListener('click',e=>{ if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button===0) {e.preventDefault();onOpen(raw);} });
-    body.append(el('tr',{},showPosition ? el('td',{class:'number-cell'},row.position ?? raw.position ?? '—') : null,el('td',{class:'number-cell'},shortID),el('td',{class:'title-cell'},anchor,participation?el('small',{class:'row-sublabel'},participation):null),el('td',{},status(historical ? row.disposition : row.status)),el('td',{title:historical?undefined:closedTitle},historical ? '当前详情中查看' : describe(membership('milestone_id',row.milestone || row.milestone_id || relations.milestone || relations.milestone_id)) || '—'),el('td',{title:historical?undefined:closedTitle},historical ? options.worksetID || '结束时记录' : describe(membership('workset_id',row.workset || row.workset_id || relations.workset || relations.workset_id)) || '—'),el('td',{title:historical?undefined:closedTitle},historical ? '当前详情中查看' : describe(membership('line_id',row.line || row.line_id || relations.line || relations.line_id)) || '—'),el('td',{class:'chevron-cell'},icon('chev'))));
+    body.append(el('tr',{},showPosition ? el('td',{class:'number-cell'},row.position ?? raw.position ?? '—') : null,el('td',{class:'number-cell'},shortID),el('td',{class:'title-cell'},anchor,participation?el('small',{class:'row-sublabel'},participation):null),historical ? null : el('td',{},row.priority || '未设置'),el('td',{},status(historical ? row.disposition : row.status)),el('td',{title:historical?undefined:closedTitle},historical ? '当前详情中查看' : describe(membership('milestone_id',row.milestone || row.milestone_id || relations.milestone || relations.milestone_id)) || '—'),el('td',{title:historical?undefined:closedTitle},historical ? options.worksetID || '结束时记录' : describe(membership('workset_id',row.workset || row.workset_id || relations.workset || relations.workset_id)) || '—'),el('td',{title:historical?undefined:closedTitle},historical ? '当前详情中查看' : describe(membership('line_id',row.line || row.line_id || relations.line || relations.line_id)) || '—'),el('td',{class:'chevron-cell'},icon('chev'))));
   }
   table.append(body); return el('div',{class:'table-scroll'},table);
 }

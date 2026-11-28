@@ -195,7 +195,7 @@ func route(r *http.Request, reader *app.Reader) (app.View, error) {
 	parts := strings.Split(raw, "/")
 	q := r.URL.Query()
 	revision := q.Get("revision")
-	f := app.TopicFilter{Scope: q.Get("scope"), WorksetID: q.Get("workset_id"), MilestoneID: q.Get("milestone_id"), LineID: q.Get("line_id"), Status: q.Get("status"), Query: q.Get("q"), Basis: q.Get("basis"), Revision: revision}
+	f := app.TopicFilter{Scope: q.Get("scope"), WorksetID: q.Get("workset_id"), MilestoneID: q.Get("milestone_id"), LineID: q.Get("line_id"), Status: q.Get("status"), Priority: q.Get("priority"), Query: q.Get("q"), Basis: q.Get("basis"), Revision: revision}
 	for key, target := range map[string]*int{"offset": &f.Offset, "limit": &f.Limit} {
 		if q.Has(key) {
 			n, e := strconv.Atoi(q.Get(key))
