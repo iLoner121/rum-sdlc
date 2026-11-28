@@ -1,5 +1,12 @@
 # 版本记录
 
+## [1.4.0](https://github.com/iLoner121/rum-sdlc/compare/v1.3.0...v1.4.0) (2026-11-28)
+
+
+### Features
+
+* **workflow:** Require a milestone for Topic delivery ([ab24de6](https://github.com/iLoner121/rum-sdlc/commit/ab24de6df435e4f783a723fcccf119fd291daa9f))
+
 ## [1.3.0](https://github.com/iLoner121/rum-sdlc/compare/v1.2.0...v1.3.0) (2026-11-28)
 
 
