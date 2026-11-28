@@ -1,5 +1,13 @@
 # 版本记录
 
+## [1.3.0](https://github.com/iLoner121/rum-sdlc/compare/v1.2.0...v1.3.0) (2026-11-28)
+
+
+### Features
+
+* **workflow:** Add Topic priority levels ([21df5ad](https://github.com/iLoner121/rum-sdlc/commit/21df5ad1145e602521eaa5c4790182f6c6b9259e))
+* **workspace:** Show parallel worktree recovery and archive context ([d3cb7b4](https://github.com/iLoner121/rum-sdlc/commit/d3cb7b4ca17a473904074dd501d5e8fcea24f928))
+
 ## [1.2.0](https://github.com/iLoner121/rum-sdlc/compare/v1.1.1...v1.2.0) (2026-11-27)
 
 
