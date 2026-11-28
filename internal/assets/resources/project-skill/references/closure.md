@@ -4,6 +4,8 @@ Topic 结束前核对当前系统关联与实际代码目标；Mainline/开发�
 
 Task planned/active/blocked 先解决或真实转出；deferred/cancelled 不能隐藏仍承诺的结果。测试 Task done 可报告失败，必需失败或未知未解决不能视为交付通过。按 verification.md 检查验收映射和最新目标，按 design.md 检查架构/契约/相关主题冲突；实现知识更新到代码仓库相应版本的长期文档。
 
+`delivered` 关闭前核对 Topic 已绑定 planned 或 active 的 Milestone。缺失时通过 `relation.move` 绑定后重新预检。代码交付在实际整合前核对这项归属。Topic 可以直接从 Pool 交付，也可以从 Iteration 交付。
+
 ## 整合方式
 
 默认快进或普通 merge，保留已有提交；已分叉普通 merge，不强制 no-ff。squash 只有以下全部成立时作为明确选项交由用户 review：

@@ -311,8 +311,17 @@ func TestNativeBusinessMergeCommutesOnlyDisjointEntities(t *testing.T) {
 	milestone := command(t, a, "milestone.create", Object{"name": "Stage"})["result"]
 	topic := command(t, a, "topic.create", Object{"name": "Topic", "type": "fix", "slug": "topic", "unassigned_reason": "Test"})["result"]
 	meta := filepath.Join(root, "project-a")
+	delivered := command(t, a, "topic.create", Object{"name": "Old delivery", "type": "feat", "slug": "old-delivery", "unassigned_reason": "Test"})["result"]
+	command(t, a, "topic.state", Object{"id": delivered, "status": "active"})
+	command(t, a, "topic.state", Object{"id": delivered, "status": "review", "verification": "Tested"})
+	command(t, a, "topic.state", Object{"id": delivered, "status": "ready", "acceptance": "Accepted"})
+	oldClose := core.Request("topic.close", Object{"id": delivered, "outcome": "delivered", "summary": "Delivered", "verification": "Tested", "delivery_record": "Report"}, "2026-11-06", "Test", "Evidence", "Decision")
+	closedState, _, err := core.ReplayRequest(readState(meta), oldClose)
+	if err != nil {
+		t.Fatal(err)
+	}
 	legacy := core.Request("entity.rename", Object{"table": "topics", "id": "T1", "name": "Legacy topic name"}, "2026-11-06", "Test", "Evidence", "Decision")
-	oldState, _, err := core.ReplayRequest(readState(meta), legacy)
+	oldState, _, err := core.ReplayRequest(closedState, legacy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,6 +345,11 @@ func TestNativeBusinessMergeCommutesOnlyDisjointEntities(t *testing.T) {
 	history, originalHistory := array(state["history"], "history"), array(oldState["history"], "original history")
 	if !equal(history[:len(originalHistory)], originalHistory) {
 		t.Fatal("merge changed legacy common history")
+	}
+	closedTopic := object(object(state["topics"], "topics")[str(delivered)], "delivered topic")
+	deliveredSnapshot := object(object(closedTopic["closure"], "closure")["memberships"], "memberships")
+	if closedTopic["status"] != "closed" || deliveredSnapshot["milestone_id"] != nil {
+		t.Fatal("merge changed the original unassigned delivery", closedTopic)
 	}
 	for _, item := range history[len(originalHistory):] {
 		event := object(item, "event")

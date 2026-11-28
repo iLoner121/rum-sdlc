@@ -52,7 +52,7 @@ Python API：将 scripts 目录加入 Python 模块搜索路径后，service.req
 | topic.integration.prepare | id、context；当前 Line 上更新已有整合评估，保持原来源与当前归属；暂停执行、失效旧验证及接受；不由系统解释代码锚点 |
 | topic.dependencies | id、dependencies：唯一 Topic ID 数组，不接受缺失引用或环 |
 | topic.state | id、status；review 需 verification，ready 需 acceptance；更换 Line 后 review 另需与选定 context 一致的 integration_proof，含 verified_on/report/verification；不能只填报告清门禁 |
-| topic.close | id、outcome、summary、verification；交付需 delivery_record；取消/替代需 retention（保留记录或明确丢弃决定），替代需 successor；可选 extensions 保存外部证据 |
+| topic.close | id、outcome、summary、verification；交付需 delivery_record；delivered 另需 Topic 已绑定 planned 或 active 的 Milestone；取消/替代需 retention（保留记录或明确丢弃决定），替代需 successor；可选 extensions 保存外部证据 |
 | relation.move | kind=milestone/workset/line、topic_id、to；M 可为 null，当前集合只能 Pool/active ITER，从 ITER 移出另需 destination，与 change remove 共用约束；Line 迁移另需 integration_context（见下文），保存并暂停执行现场；需要关系调整决定与证据 |
 | task.create | topic_id、name、kind；建立 planned 活动，不自动执行 |
 | task.state | id（T-ID/tNNN）、status；done 需 result（可记录失败），deferred 需 destination；异常转换的原因写请求 reason |

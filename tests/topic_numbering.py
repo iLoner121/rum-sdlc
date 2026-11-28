@@ -147,6 +147,12 @@ with tempfile.TemporaryDirectory(prefix='rum-numbering-', dir='/private/tmp') as
         id=canonical, outcome='delivered', summary='Fixture delivered', verification='Fixture Git checks',
         delivery_record=delivered, extensions={'git': {'integration_commit': delivered, 'retained_ref': None}}),
         date='2026-11-10', reason='Fixture', evidence='Fixture', decision='Fixture')))
+    before = (meta/'state.json').read_bytes()
+    refusal = git_tool('closure-plan', '--request', close_request, success=False)
+    assert 'planned or active Milestone' in refusal['error'], refusal
+    assert (meta/'state.json').read_bytes() == before
+    milestone = apply('milestone.create', dict(name='First release'))['result']
+    apply('relation.move', dict(kind='milestone', topic_id='T1', to=milestone))
     apply_integration(git_tool('closure-plan', '--request', close_request))
     _, rows = inventory('check')
     assert rows[str(first_tree)]['topic']['status'] == 'closed' and rows[str(first_tree)]['next_steps']

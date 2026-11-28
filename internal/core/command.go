@@ -74,7 +74,7 @@ func dispatch(before Object, request Object, replay bool) (after Object, result 
 	if action == "topic.priority" && !replay {
 		normalizeTopicPriority(effective)
 	}
-	result = apply(after, effective)
+	result = apply(after, effective, replay)
 	if replay {
 		return seal(before, after, request, result)
 	}
@@ -130,7 +130,7 @@ func Changes(before, after Object) []any {
 	return changes
 }
 
-func apply(s, r Object) any {
+func apply(s, r Object, replay bool) any {
 	a := str(r["action"])
 	p := obj(r["params"], "params")
 	when := str(r["date"])
@@ -284,7 +284,7 @@ func apply(s, r Object) any {
 		move(s, r, str(p["kind"]), str(p["topic_id"]), p["to"], p["destination"], p["integration_context"])
 		return p["topic_id"]
 	case "topic.dependencies", "topic.state", "topic.close":
-		return applyTopic(s, r, p)
+		return applyTopic(s, r, p, replay)
 	case "task.create", "task.kind", "task.state":
 		return applyTask(s, r, p)
 	}
@@ -493,7 +493,7 @@ func applyLine(s, r, p Object) any {
 	return id
 }
 
-func applyTopic(s, r, p Object) any {
+func applyTopic(s, r, p Object, replay bool) any {
 	id := str(p["id"])
 	t := topic(s, id)
 	switch r["action"] {
@@ -547,6 +547,12 @@ func applyTopic(s, r, p Object) any {
 			text(p["retention"], "Retained work or explicit discard decision")
 		}
 		snapshot := resolve(s, id)
+		// Milestone membership is required for new deliveries. Recorded
+		// commands retain their original meaning when history is replayed.
+		if outcome == "delivered" && !replay {
+			milestone, _ := rows(s, "milestones")[str(snapshot["milestone_id"])].(Object)
+			need(contains("planned active", str(milestone["status"])), "Formal delivery requires a planned or active Milestone; use relation.move with kind=milestone, then preview topic.close again")
+		}
 		line := entity(s, "lines", str(snapshot["line_id"]))
 		c := closure(r, p, outcome)
 		c["verification"] = p["verification"]
